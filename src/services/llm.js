@@ -9,18 +9,22 @@ function buildNewsPrompt(candidates) {
     description: item.description,
     category: item.category,
     pubDate: item.pubDate,
+    score: item.score,
     link: item.link
   }));
 
-  return `아래 뉴스 후보 중 한국 사용자가 아침에 알면 좋은 주요 뉴스 3개를 골라줘.
+  return `아래 뉴스 후보 중 한국 사용자가 아침에 알면 좋은 주요 뉴스 최대 3개를 골라줘.
 
-규칙:
-- 반드시 후보 안에서만 고른다.
+중요 규칙:
+- 반드시 후보의 id만 선택한다.
+- 후보에 없는 뉴스를 만들지 않는다.
 - 같은 이슈는 하나로 합친다.
-- 정치 뉴스는 제외한다.
-- 경제와 국제 뉴스를 우선한다.
-- 가능하면 경제/국제 뉴스에서 2개 이상 고른다.
-- 사회, IT/과학, 스포츠는 매우 중요한 이슈일 때만 1개까지 포함한다.
+- 정치/정부/정당/국회/대통령/총리/장관/국무회의 관련 뉴스는 절대 선택하지 않는다.
+- 지역 기관 홍보성 뉴스, 교육청/시청/구청/협약/행사 뉴스는 선택하지 않는다.
+- 포토뉴스, 영상뉴스, 단순 발언 기사, 찬반 여론 기사는 선택하지 않는다.
+- 경제와 국제 뉴스를 최우선으로 선택한다.
+- 경제/국제 뉴스가 부족하면 IT/과학 대형 이슈만 선택한다.
+- 적합한 뉴스가 3개 미만이면 1개 또는 2개만 반환해도 된다.
 - 선정 이유를 길게 설명하지 않는다.
 - title과 description에 명시된 사실만 사용한다.
 - 후보에 없는 배경, 전망, 원인, 수치, 평가를 추가하지 않는다.
@@ -30,7 +34,7 @@ function buildNewsPrompt(candidates) {
 JSON 형식:
 {
   "items": [
-    { "title": "뉴스 제목", "summary": "아침 브리핑용 한 문장 요약", "category": "분야" }
+    { "id": 1, "summary": "아침 브리핑용 한 문장 요약" }
   ]
 }
 
@@ -71,8 +75,8 @@ export async function selectTopNewsWithGemini(candidates = []) {
         }
       ],
       generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 900,
+        temperature: 0.1,
+        maxOutputTokens: 700,
         responseMimeType: 'application/json'
       }
     })
@@ -91,10 +95,24 @@ export async function selectTopNewsWithGemini(candidates = []) {
     throw new Error('Gemini response did not include JSON items');
   }
 
-  return parsed.items.slice(0, 3).map((item) => ({
-    title: String(item.title ?? '').trim(),
-    summary: String(item.summary ?? '').trim(),
-    category: String(item.category ?? '').trim(),
-    source: 'gemini'
-  })).filter((item) => item.title && item.summary);
+  return parsed.items
+    .slice(0, 3)
+    .map((selected) => {
+      const original = candidates[Number(selected.id) - 1];
+
+      if (!original) {
+        return null;
+      }
+
+      return {
+        title: original.title,
+        summary: String(selected.summary ?? '').trim(),
+        category: original.category,
+        link: original.link,
+        pubDate: original.pubDate,
+        source: 'gemini'
+      };
+    })
+    .filter(Boolean)
+    .filter((item) => item.title && item.summary);
 }

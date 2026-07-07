@@ -61,8 +61,8 @@ GEMINI_MODEL=gemini-2.5-flash-lite
 ```
 
 - 날씨는 Open-Meteo를 사용하므로 별도 API 키가 필요 없습니다.
-- 뉴스 후보는 네이버 뉴스 검색 API에서 가져옵니다. 정치 뉴스는 제외하고 경제/국제 뉴스를 우선합니다.
-- Gemini는 뉴스 후보 중 주요 뉴스 3개를 고르고 아침 브리핑용 문장으로 요약합니다.
+- 뉴스 후보는 네이버 뉴스 검색 API에서 가져옵니다. 경제/국제 중심 쿼리로 수집하고, 정치/지역기관 홍보/포토/행사성 기사는 Gemini에 넘기기 전에 제거합니다.
+- Gemini는 정제된 후보 중 최대 3개를 id로 고르고 아침 브리핑용 문장으로 요약합니다.
 - `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `GEMINI_API_KEY`가 없거나 API 호출이 실패하면 fallback 브리핑을 반환합니다.
 
 ## API
