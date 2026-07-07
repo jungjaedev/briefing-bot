@@ -2,6 +2,12 @@ import { safeJsonParse } from '../utils/text.js';
 
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
+function wait(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 function buildNewsPrompt(candidates) {
   const compactCandidates = candidates.map((item, index) => ({
     id: index + 1,
@@ -62,7 +68,7 @@ export async function selectTopNewsWithGemini(candidates = []) {
     return [];
   }
 
-  const response = await fetch(`${GEMINI_API_URL}/${model}:generateContent`, {
+  const request = {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -80,7 +86,14 @@ export async function selectTopNewsWithGemini(candidates = []) {
         responseMimeType: 'application/json'
       }
     })
-  });
+  };
+
+  let response = await fetch(`${GEMINI_API_URL}/${model}:generateContent`, request);
+
+  if (response.status === 429 || response.status === 503) {
+    await wait(1200);
+    response = await fetch(`${GEMINI_API_URL}/${model}:generateContent`, request);
+  }
 
   if (!response.ok) {
     const body = await response.text();
