@@ -2,7 +2,7 @@
 
 Node.js + Express 기반 아침 브리핑 봇입니다. iPhone 단축어에서 `GET /briefing`을 호출하면 한국어 `plain text` 브리핑을 반환합니다.
 
-초기 버전은 API 키 없이 mock 날씨와 mock 뉴스로 실행됩니다. 실제 기상청 API, 네이버 뉴스 API, 캘린더 연동은 `src/services/` 안의 서비스 함수만 교체해서 붙일 수 있도록 분리했습니다.
+API 키가 없으면 mock 뉴스로 실행되고, 키가 있으면 Open-Meteo 날씨, 네이버 뉴스 후보, Gemini 요약을 사용합니다. 캘린더 연동은 `src/services/calendar.js`에 추후 추가할 수 있도록 분리했습니다.
 
 ## 요구사항
 
@@ -18,8 +18,10 @@ src/briefing.js
 src/services/weather.js
 src/services/news.js
 src/services/calendar.js
+src/services/llm.js
 src/utils/date.js
 src/utils/format.js
+src/utils/text.js
 .env.example
 .gitignore
 README.md
@@ -41,6 +43,27 @@ http://localhost:3000/briefing
 ```
 
 기본 포트는 `3000`입니다. 변경하려면 `.env`의 `PORT` 값을 수정하세요.
+
+## 환경 변수
+
+```env
+PORT=3000
+
+WEATHER_LAT=37.6688
+WEATHER_LON=127.0471
+WEATHER_LOCATION_NAME=서울 도봉구
+
+NAVER_CLIENT_ID=
+NAVER_CLIENT_SECRET=
+
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-2.5-flash-lite
+```
+
+- 날씨는 Open-Meteo를 사용하므로 별도 API 키가 필요 없습니다.
+- 뉴스 후보는 네이버 뉴스 검색 API에서 가져옵니다.
+- Gemini는 뉴스 후보 중 주요 뉴스 3개를 고르고 아침 브리핑용 문장으로 요약합니다.
+- `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `GEMINI_API_KEY`가 없거나 API 호출이 실패하면 fallback 브리핑을 반환합니다.
 
 ## API
 
@@ -133,7 +156,8 @@ pm2 stop morning-briefing
 ## 실제 API 연동 위치
 
 - 날씨: `src/services/weather.js`
-- 뉴스: `src/services/news.js`
+- 뉴스 후보 수집: `src/services/news.js`
+- Gemini 요약: `src/services/llm.js`
 - 캘린더: `src/services/calendar.js`
 
 API 키와 클라이언트 시크릿은 코드에 직접 넣지 말고 `.env`에만 저장하세요. `.env.example`에는 필요한 변수 이름만 추가합니다.

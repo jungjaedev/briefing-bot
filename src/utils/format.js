@@ -6,7 +6,11 @@ export function formatNewsItems(items = []) {
   }
 
   return items
-    .map((item, index) => `${ORDINALS[index] ?? `${index + 1}번째`}, ${item.title}`)
+    .map((item, index) => {
+      const prefix = ORDINALS[index] ?? `${index + 1}번째`;
+      const text = item.summary ? `${item.title}. ${item.summary}` : item.title;
+      return `${prefix}, ${text}`;
+    })
     .join('\n');
 }
 
