@@ -20,6 +20,28 @@ const WEATHER_CODE_LABELS = new Map([
   [95, '천둥번개 가능성이 있고']
 ]);
 
+const WEATHER_CODE_SHORT_LABELS = new Map([
+  [0, '맑음'],
+  [1, '대체로 맑음'],
+  [2, '구름 조금'],
+  [3, '흐림'],
+  [45, '안개'],
+  [48, '짙은 안개'],
+  [51, '가벼운 이슬비'],
+  [53, '이슬비'],
+  [55, '강한 이슬비'],
+  [61, '약한 비'],
+  [63, '비'],
+  [65, '강한 비'],
+  [71, '약한 눈'],
+  [73, '눈'],
+  [75, '강한 눈'],
+  [80, '약한 소나기'],
+  [81, '소나기'],
+  [82, '강한 소나기'],
+  [95, '천둥번개']
+]);
+
 function getNumber(value) {
   return Number.isFinite(value) ? Math.round(value) : null;
 }
@@ -29,20 +51,75 @@ function getTodayIndex(daily, dateKey) {
   return index >= 0 ? index : 0;
 }
 
-function buildSummary(precipitationProbability) {
-  if (precipitationProbability === null) {
+function getHourInKorea(value) {
+  return Number.parseInt(value.slice(11, 13), 10);
+}
+
+function getHourlyPeriod(hourly, dateKey, startHour, endHour) {
+  const rows = hourly?.time
+    ?.map((time, index) => ({
+      time,
+      hour: getHourInKorea(time),
+      weatherCode: hourly.weather_code?.[index],
+      precipitationProbability: getNumber(hourly.precipitation_probability?.[index])
+    }))
+    .filter((row) => row.time.startsWith(dateKey) && row.hour >= startHour && row.hour < endHour) ?? [];
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  const maxPrecipitation = Math.max(
+    ...rows.map((row) => row.precipitationProbability ?? 0)
+  );
+  const representative =
+    rows.find((row) => (row.precipitationProbability ?? 0) === maxPrecipitation) ?? rows[0];
+
+  return {
+    condition: WEATHER_CODE_SHORT_LABELS.get(representative.weatherCode) ?? '변화 있음',
+    precipitationProbability: maxPrecipitation
+  };
+}
+
+function buildPeriodSummary(morning, afternoon, dailyPrecipitationProbability) {
+  if (!morning && !afternoon) {
+    if (dailyPrecipitationProbability === null) {
+      return '강수 가능성 정보는 현재 확인되지 않았습니다.';
+    }
+
+    return `오늘 예상 강수확률은 최대 ${dailyPrecipitationProbability}%입니다.`;
+  }
+
+  const parts = [];
+
+  if (morning) {
+    parts.push(`오전은 ${morning.condition}, 강수확률 ${morning.precipitationProbability}%`);
+  }
+
+  if (afternoon) {
+    parts.push(`오후는 ${afternoon.condition}, 강수확률 ${afternoon.precipitationProbability}%`);
+  }
+
+  const maxPrecipitation = Math.max(
+    morning?.precipitationProbability ?? 0,
+    afternoon?.precipitationProbability ?? 0,
+    dailyPrecipitationProbability ?? 0
+  );
+  const advice = maxPrecipitation >= 60
+    ? '우산을 챙기는 편이 좋겠습니다.'
+    : maxPrecipitation >= 35
+      ? '외출 전 비 소식을 한 번 더 확인해 주세요.'
+      : '비 가능성은 크지 않습니다.';
+
+  return `${parts.join(', ')}입니다. ${advice}`;
+}
+
+function buildSummary(morning, afternoon, precipitationProbability) {
+  if (precipitationProbability === null && !morning && !afternoon) {
     return '강수 가능성 정보는 현재 확인되지 않았습니다.';
   }
 
-  if (precipitationProbability >= 70) {
-    return `비가 올 가능성이 높습니다. 우산을 챙기는 편이 좋겠습니다. 예상 강수확률은 ${precipitationProbability}%입니다.`;
-  }
-
-  if (precipitationProbability >= 40) {
-    return `오후나 이동 시간대에 비 가능성을 확인해 주세요. 예상 강수확률은 ${precipitationProbability}%입니다.`;
-  }
-
-  return `강수확률은 ${precipitationProbability}%로 비교적 낮습니다.`;
+  return buildPeriodSummary(morning, afternoon, precipitationProbability);
 }
 
 export async function getWeather({ dateKey } = {}) {
@@ -58,6 +135,10 @@ export async function getWeather({ dateKey } = {}) {
       'temperature_2m_max',
       'temperature_2m_min',
       'precipitation_probability_max'
+    ].join(','),
+    hourly: [
+      'weather_code',
+      'precipitation_probability'
     ].join(',')
   });
 
@@ -73,6 +154,8 @@ export async function getWeather({ dateKey } = {}) {
   const minTemperature = getNumber(data.daily?.temperature_2m_min?.[index]);
   const maxTemperature = getNumber(data.daily?.temperature_2m_max?.[index]);
   const precipitationProbability = getNumber(data.daily?.precipitation_probability_max?.[index]);
+  const morning = getHourlyPeriod(data.hourly, dateKey, 6, 12);
+  const afternoon = getHourlyPeriod(data.hourly, dateKey, 12, 18);
 
   return {
     dateKey,
@@ -81,6 +164,8 @@ export async function getWeather({ dateKey } = {}) {
     minTemperature,
     maxTemperature,
     precipitationProbability,
-    summary: buildSummary(precipitationProbability)
+    morning,
+    afternoon,
+    summary: buildSummary(morning, afternoon, precipitationProbability)
   };
 }

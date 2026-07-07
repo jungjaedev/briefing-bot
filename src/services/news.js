@@ -1,7 +1,13 @@
 import { selectTopNewsWithGemini } from './llm.js';
 import { normalizeForDedup, stripHtml } from '../utils/text.js';
 
-const NEWS_QUERIES = ['정치', '경제', '사회', '국제', '스포츠', 'IT 과학'];
+const NEWS_QUERIES = [
+  { query: '경제', category: '경제', display: '8' },
+  { query: '국제', category: '국제', display: '8' },
+  { query: '사회', category: '사회', display: '4' },
+  { query: 'IT 과학', category: 'IT/과학', display: '4' },
+  { query: '스포츠', category: '스포츠', display: '3' }
+];
 
 function getMockNews(dateKey) {
   return [
@@ -64,10 +70,10 @@ function dedupeNews(items) {
   return deduped;
 }
 
-async function fetchNaverNews(query, dateKey) {
+async function fetchNaverNews({ query, category, display }, dateKey) {
   const params = new URLSearchParams({
     query,
-    display: '5',
+    display,
     start: '1',
     sort: 'date'
   });
@@ -91,7 +97,7 @@ async function fetchNaverNews(query, dateKey) {
     description: stripHtml(item.description),
     link: item.originallink || item.link,
     pubDate: item.pubDate,
-    category: query,
+    category,
     isToday: isSameKoreanDate(item.pubDate, dateKey)
   }));
 }
@@ -102,7 +108,7 @@ export async function getTopNews({ dateKey } = {}) {
   }
 
   const nestedCandidates = await Promise.all(
-    NEWS_QUERIES.map((query) => fetchNaverNews(query, dateKey))
+    NEWS_QUERIES.map((queryConfig) => fetchNaverNews(queryConfig, dateKey))
   );
 
   const candidates = dedupeNews(nestedCandidates.flat())
