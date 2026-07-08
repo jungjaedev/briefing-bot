@@ -6,3 +6,5 @@ logs/
 pm2.log
 pm2-error.log
 pm2-out.log
+
+data/

@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import dns from 'node:dns';
 import express from 'express';
-import { createBriefing } from './briefing.js';
+import { getBriefingCacheStatus, getCachedBriefing } from './services/briefingCache.js';
 
 dns.setDefaultResultOrder('ipv4first');
 
@@ -19,10 +19,45 @@ app.get('/health', (req, res) => {
   res.json({ ok: true });
 });
 
+app.get('/briefing/status', async (req, res, next) => {
+  try {
+    res.json({
+      ok: true,
+      cache: await getBriefingCacheStatus()
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/briefing/refresh', async (req, res, next) => {
+  try {
+    const refreshToken = process.env.BRIEFING_REFRESH_TOKEN;
+
+    if (!refreshToken || req.query.token !== refreshToken) {
+      res.status(403).type('text/plain; charset=utf-8').send('Forbidden');
+      return;
+    }
+
+    const briefing = await getCachedBriefing({ forceRefresh: true });
+    res
+      .set('Cache-Control', 'no-store')
+      .type('text/plain; charset=utf-8')
+      .send(briefing.text);
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get('/briefing', async (req, res, next) => {
   try {
-    const briefing = await createBriefing();
-    res.type('text/plain; charset=utf-8').send(briefing);
+    const refreshToken = process.env.BRIEFING_REFRESH_TOKEN;
+    const forceRefresh = req.query.refresh === 'true' && refreshToken && req.query.token === refreshToken;
+    const briefing = await getCachedBriefing({ forceRefresh });
+    res
+      .set('Cache-Control', 'no-store')
+      .type('text/plain; charset=utf-8')
+      .send(briefing.text);
   } catch (error) {
     next(error);
   }

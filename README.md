@@ -22,6 +22,7 @@ src/services/calendar.js
 src/services/llm.js
 src/services/market.js
 src/services/dayInfo.js
+src/services/briefingCache.js
 src/utils/date.js
 src/utils/format.js
 src/utils/text.js
@@ -53,6 +54,9 @@ http://localhost:3000/briefing
 PORT=3000
 HOST=127.0.0.1
 
+BRIEFING_REFRESH_TOKEN=
+BRIEFING_CACHE_DIR=
+
 NAVER_CLIENT_ID=
 NAVER_CLIENT_SECRET=
 
@@ -71,6 +75,9 @@ EXCHANGE_API_KEY=
 ```
 
 - 날씨와 대기질은 Open-Meteo를 사용하므로 별도 API 키가 필요 없습니다. 기본 위치는 `src/services/weather.js`의 `DEFAULT_LOCATION`에 있는 서울 도봉구입니다.
+- `/briefing`은 `data/briefing-cache.json`에 저장된 오늘 브리핑을 우선 반환합니다. 오늘 캐시가 없을 때만 새로 생성하고 같은 파일을 덮어씁니다.
+- `BRIEFING_CACHE_DIR`를 비워두면 프로젝트 루트의 `data` 폴더를 사용합니다.
+- `BRIEFING_REFRESH_TOKEN`을 설정하면 `/briefing/refresh?token=...` 또는 `/briefing?refresh=true&token=...`로 오늘 브리핑을 강제로 새로 생성할 수 있습니다.
 - 대기질은 Open-Meteo Air Quality API에서 PM10/PM2.5를 가져와 등급만 짧게 표시합니다.
 - 날짜 정보는 `src/services/dayInfo.js`에서 당일 공휴일/대체공휴일/기념일/절기와 월요일 주간 항목을 짧게 표시합니다.
 - 뉴스 후보는 네이버 뉴스 검색 API에서 가져옵니다. 경제/국제 중심 쿼리로 수집하고, 정치/지역기관 홍보/포토/행사성 기사는 Gemini에 넘기기 전에 제거합니다.
@@ -100,6 +107,16 @@ EXCHANGE_API_KEY=
 ### `GET /briefing`
 
 오늘 날짜 기준 브리핑을 `plain text`로 반환합니다. 날짜는 한국 시간대 기준입니다.
+
+오늘 캐시가 있으면 `data/briefing-cache.json`에서 그대로 반환하고, 캐시가 없으면 새로 생성한 뒤 같은 파일에 저장합니다. 일반 새로고침이나 iPhone 단축어 호출은 LLM을 반복 호출하지 않습니다.
+
+### `GET /briefing/status`
+
+브리핑 캐시 상태를 JSON으로 반환합니다.
+
+### `GET /briefing/refresh?token=...`
+
+`BRIEFING_REFRESH_TOKEN`이 일치할 때만 오늘 브리핑을 강제로 새로 생성하고 캐시 파일을 덮어씁니다.
 
 ## Oracle Cloud Ubuntu 24.04 배포
 
