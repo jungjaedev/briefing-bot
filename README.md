@@ -48,6 +48,7 @@ http://localhost:3000/briefing
 
 ```env
 PORT=3000
+HOST=127.0.0.1
 
 WEATHER_LAT=37.6688
 WEATHER_LON=127.0471
@@ -88,13 +89,20 @@ GEMINI_MODEL=gemini-2.5-flash-lite
 서버에 접속한 뒤 프로젝트 폴더로 이동합니다.
 
 ```bash
-cd ~/codex-workspaces/oracle
+cd ~/briefing-bot
 npm install
 cp .env.example .env
 nano .env
 ```
 
-방화벽 또는 Oracle Cloud 보안 목록에서 사용할 포트가 열려 있어야 외부에서 접근할 수 있습니다. 기본 포트는 `3000`입니다.
+운영 서버에서는 앱을 외부에 직접 공개하지 않고 `127.0.0.1:3000`에서만 실행합니다. 외부 접속은 Nginx가 `80 -> 127.0.0.1:3000`으로 프록시합니다.
+
+```env
+PORT=3000
+HOST=127.0.0.1
+```
+
+Oracle Cloud Security List 또는 NSG에서는 TCP `80`만 열면 됩니다. `3000`은 외부에 열지 않습니다.
 
 일회성 실행:
 
@@ -113,7 +121,7 @@ npm install -g pm2
 앱을 시작합니다.
 
 ```bash
-pm2 start src/server.js --name morning-briefing
+pm2 start npm --name morning-briefing -- start
 pm2 status
 ```
 
@@ -151,6 +159,40 @@ pm2 restart morning-briefing
 
 ```bash
 pm2 stop morning-briefing
+```
+
+## Nginx 프록시
+
+Nginx는 외부 HTTP 요청을 내부 앱 포트로 전달합니다.
+
+```nginx
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+설정 확인과 재시작:
+
+```bash
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+외부 호출 URL:
+
+```text
+http://168.107.7.60/briefing
 ```
 
 ## 실제 API 연동 위치
