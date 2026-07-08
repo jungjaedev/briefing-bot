@@ -40,13 +40,24 @@ function buildNewsPrompt(candidates) {
 - title과 description에 명시된 사실만 사용한다.
 - 후보에 없는 배경, 전망, 원인, 수치, 평가를 추가하지 않는다.
 - 환율, 미국 증시, 유가, 비트코인/이더리움 시세 흐름 같은 시장 점검성 항목은 단독 주요 뉴스로 억지로 선택하지 않는다. 큰 사건이나 정책 변화와 결합된 경우만 선택한다.
-- summary는 35자에서 70자 사이의 담백한 한 문장으로 쓴다.
+- 같은 이슈나 같은 토픽은 최대 1개만 선택한다.
+- 삼성전자/SK하이닉스/AI 반도체/메모리 반도체 관련 기사가 여러 개면 가장 대표적인 1개만 선택한다.
+- 뉴스 3개가 모두 반도체, 증시, AI 같은 하나의 주제에 몰리지 않게 한다.
+- original title은 최종 브리핑에 그대로 노출하지 않는다.
+- briefTitle은 15~35자 정도의 자연스러운 한국어 문장 또는 명사형 제목으로 만든다.
+- summary는 40자에서 80자 사이의 담백한 한 문장으로 쓴다.
+- topicKey는 같은 이슈를 식별할 수 있는 짧은 영어 키로 쓴다.
 - 응답은 JSON만 반환한다.
 
 JSON 형식:
 {
   "items": [
-    { "id": 1, "summary": "아침 브리핑용 한 문장 요약" }
+    {
+      "id": 1,
+      "briefTitle": "브리핑용 짧은 제목",
+      "summary": "아침 브리핑용 한 문장 요약",
+      "topicKey": "short_topic_key"
+    }
   ]
 }
 
@@ -98,15 +109,21 @@ function hasUnsupportedNumericToken(summary, originalText) {
   return getNumericTokens(summary).some((token) => !originalText.includes(token));
 }
 
-function getSafeNewsSummary(selected, original) {
-  const summary = String(selected.summary ?? '').trim();
+function getSafeNewsText(value, original) {
+  const text = String(value ?? '').trim();
   const originalText = `${original.title ?? ''} ${original.description ?? ''}`;
 
-  if (!summary || hasUnsupportedNumericToken(summary, originalText)) {
-    return String(original.description || original.title || '').trim();
+  if (!text || hasUnsupportedNumericToken(text, originalText)) {
+    return '';
   }
 
-  return summary;
+  return text;
+}
+
+function getFallbackNewsSummary(original) {
+  return String(original.description || original.title || '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 async function generateGeminiJson(prompt, { maxOutputTokens = 700, temperature = 0.1 } = {}) {
@@ -298,6 +315,8 @@ export async function selectTopNewsWithGemini(candidates = []) {
     throw new Error('LLM response did not include JSON items');
   }
 
+  const usedTopicKeys = new Set();
+
   return parsed.items
     .slice(0, 3)
     .map((selected) => {
@@ -307,9 +326,25 @@ export async function selectTopNewsWithGemini(candidates = []) {
         return null;
       }
 
+      const topicKey = String(selected.topicKey ?? '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]/g, '');
+
+      if (topicKey && usedTopicKeys.has(topicKey)) {
+        return null;
+      }
+
+      if (topicKey) {
+        usedTopicKeys.add(topicKey);
+      }
+
       return {
         title: original.title,
-        summary: getSafeNewsSummary(selected, original),
+        originalTitle: original.title,
+        briefTitle: getSafeNewsText(selected.briefTitle, original),
+        summary: getSafeNewsText(selected.summary, original) || getFallbackNewsSummary(original),
+        topicKey,
         category: original.category,
         link: original.link,
         pubDate: original.pubDate,

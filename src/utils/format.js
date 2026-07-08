@@ -8,7 +8,7 @@ export function formatNewsItems(items = []) {
   return items
     .map((item, index) => {
       const prefix = ORDINALS[index] ?? `${index + 1}번째`;
-      const text = item.summary ? `${item.title}. ${item.summary}` : item.title;
+      const text = item.summary || item.briefTitle || item.title;
       return `${prefix}, ${text}`;
     })
     .join('\n');
