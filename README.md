@@ -136,7 +136,7 @@ npm run briefing:daily
 cron 예시:
 
 ```cron
-30 6 * * * cd /home/ubuntu/briefing-bot && /usr/bin/npm run briefing:daily >> /home/ubuntu/briefing-bot/logs/briefing-cron.log 2>&1
+30 6 * * * cd /home/ubuntu/briefing-bot && mkdir -p logs && /usr/bin/env npm run briefing:daily >> /home/ubuntu/briefing-bot/logs/briefing-cron.log 2>&1
 ```
 
 이렇게 하면 매일 06:30에:
