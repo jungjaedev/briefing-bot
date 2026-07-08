@@ -51,7 +51,7 @@ const CRYPTO_ALLOW_KEYWORDS = [
 const MARKET_CHECK_ONLY_KEYWORDS = [
   '코스피', '코스닥', '나스닥', '다우', 'S&P', '환율', '원달러',
   '원/달러', '원엔', '원/엔', '유가', '국제유가', 'WTI',
-  '브렌트유', '비트코인', '이더리움'
+  '브렌트유', '비트코인', '이더리움', '삼성전자', 'SK하이닉스'
 ];
 const MARKET_MOVE_KEYWORDS = [
   '급등', '급락', '상승', '하락', '강세', '약세', '마감', '출발',
@@ -110,9 +110,14 @@ function compactSummary(value = '') {
 }
 
 function fallbackTopNews(candidates) {
-  return candidates.slice(0, 3).map((item) => ({
+  return candidates
+    .filter((item) => !isExcludedNews(item))
+    .slice(0, 3)
+    .map((item) => ({
     title: item.title,
-    summary: compactSummary(item.description || item.title),
+    originalTitle: item.title,
+    briefTitle: compactSummary(item.title),
+    summary: compactSummary(item.title),
     category: item.category,
     link: item.link,
     pubDate: item.pubDate,

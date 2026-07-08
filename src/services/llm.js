@@ -284,11 +284,11 @@ async function generateXaiGrokJson(prompt, options) {
   );
 }
 
-async function generateLlmJson(prompt, options) {
+async function generateLlmJson(prompt, { allowFallback = true, ...options } = {}) {
   try {
     return await generateGeminiJson(prompt, options);
   } catch (geminiError) {
-    if (!getGroqApiKey() && !getXaiApiKey()) {
+    if (!allowFallback || (!getGroqApiKey() && !getXaiApiKey())) {
       throw geminiError;
     }
 
@@ -305,7 +305,8 @@ async function generateLlmJson(prompt, options) {
 export async function createWeatherBriefingWithGemini(weather) {
   const parsed = await generateLlmJson(buildWeatherPrompt(weather), {
     maxOutputTokens: 700,
-    temperature: 0.2
+    temperature: 0.2,
+    allowFallback: false
   });
 
   const briefing = String(parsed?.briefing ?? '').trim();
