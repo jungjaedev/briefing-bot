@@ -123,10 +123,22 @@ function getSafeNewsText(value, original) {
   return text;
 }
 
-function getFallbackNewsSummary(original) {
-  return String(original.description || original.title || '')
+function sanitizeNewsDisplayText(value = '') {
+  return String(value ?? '')
     .replace(/\s+/g, ' ')
+    .replace(/[…]{2,}|\.{3,}/g, '')
+    .replace(/[?？]+/g, '')
     .trim();
+}
+
+function getLeadSentence(value = '') {
+  const text = sanitizeNewsDisplayText(value);
+  const lead = text.split(/[.!?。！？]/)[0] ?? text;
+  return sanitizeNewsDisplayText(lead);
+}
+
+function getFallbackNewsSummary(original) {
+  return getLeadSentence(original.description || original.title || '');
 }
 
 function isMarketMovementSummary(item) {
@@ -139,8 +151,12 @@ function isMarketMovementSummary(item) {
 }
 
 function normalizeSelectedNewsItem(selected, original) {
-  const briefTitle = getSafeNewsText(selected.briefTitle, original) || compactTitle(original.title);
-  const summary = getSafeNewsText(selected.summary, original) || getFallbackNewsSummary(original);
+  const briefTitle = sanitizeNewsDisplayText(
+    getSafeNewsText(selected.briefTitle, original) || compactTitle(original.title)
+  );
+  const summary = sanitizeNewsDisplayText(
+    getSafeNewsText(selected.summary, original) || getFallbackNewsSummary(original)
+  );
   const topicKey = String(selected.topicKey ?? '')
     .trim()
     .toLowerCase()
@@ -164,13 +180,13 @@ function normalizeSelectedNewsItem(selected, original) {
 }
 
 function compactTitle(value = '') {
-  const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+  const text = sanitizeNewsDisplayText(value);
 
   if (text.length <= 35) {
     return text;
   }
 
-  return `${text.slice(0, 32)}...`;
+  return text.slice(0, 35).trim();
 }
 
 async function generateGeminiJson(prompt, { maxOutputTokens = 700, temperature = 0.1 } = {}) {
@@ -407,7 +423,7 @@ export async function selectTopNewsWithGemini(candidates = []) {
       title: candidate.title,
       originalTitle: candidate.title,
       briefTitle: compactTitle(candidate.title),
-      summary: compactTitle(candidate.description || candidate.title),
+      summary: getFallbackNewsSummary(candidate),
       topicKey: '',
       category: candidate.category,
       link: candidate.link,
