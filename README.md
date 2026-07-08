@@ -50,10 +50,6 @@ http://localhost:3000/briefing
 PORT=3000
 HOST=127.0.0.1
 
-WEATHER_LAT=37.6688
-WEATHER_LON=127.0471
-WEATHER_LOCATION_NAME=서울 도봉구
-
 NAVER_CLIENT_ID=
 NAVER_CLIENT_SECRET=
 
@@ -61,7 +57,7 @@ GEMINI_API_KEY=
 GEMINI_MODEL=gemini-2.5-flash-lite
 ```
 
-- 날씨는 Open-Meteo를 사용하므로 별도 API 키가 필요 없습니다.
+- 날씨는 Open-Meteo를 사용하므로 별도 API 키가 필요 없습니다. 기본 위치는 `src/services/weather.js`의 `DEFAULT_LOCATION`에 있는 서울 도봉구입니다.
 - 뉴스 후보는 네이버 뉴스 검색 API에서 가져옵니다. 경제/국제 중심 쿼리로 수집하고, 정치/지역기관 홍보/포토/행사성 기사는 Gemini에 넘기기 전에 제거합니다.
 - Gemini는 정제된 후보 중 최대 3개를 id로 고르고 아침 브리핑용 문장으로 요약합니다.
 - `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `GEMINI_API_KEY`가 없거나 API 호출이 실패하면 fallback 브리핑을 반환합니다.

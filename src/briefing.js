@@ -27,16 +27,20 @@ export async function createBriefing(date = new Date()) {
 
   if (weatherResult.ok) {
     const weather = weatherResult.data;
-    const temperatureText =
-      weather.minTemperature === null || weather.maxTemperature === null
-        ? '기온 정보는 현재 확인되지 않았습니다.'
-        : `예상 기온은 ${weather.minTemperature}도에서 ${weather.maxTemperature}도입니다.`;
+    if (weather.briefingText) {
+      lines.push(weather.briefingText, '');
+    } else {
+      const temperatureText =
+        weather.minTemperature === null || weather.maxTemperature === null
+          ? '기온 정보는 현재 확인되지 않았습니다.'
+          : `예상 기온은 ${weather.minTemperature}도에서 ${weather.maxTemperature}도입니다.`;
 
-    lines.push(
-      `${weather.locationName ?? '오늘'} 날씨는 ${weather.condition}, ${temperatureText}`,
-      weather.summary,
-      ''
-    );
+      lines.push(
+        `${weather.locationName ?? '오늘'} 날씨는 ${weather.condition}, ${temperatureText}`,
+        weather.summary,
+        ''
+      );
+    }
   } else {
     lines.push(formatServiceError('날씨'), '');
   }

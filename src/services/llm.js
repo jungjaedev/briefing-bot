@@ -48,6 +48,30 @@ JSON 형식:
 ${JSON.stringify(compactCandidates, null, 2)}`;
 }
 
+function buildWeatherPrompt(weather) {
+  return `아래 Open-Meteo 기반 날씨 판단 데이터를 바탕으로 한국어 아침 날씨 브리핑을 작성해줘.
+
+규칙:
+- 3~5문장으로 작성한다.
+- 위치명, 최저/최고기온, 현재 날씨, 오전/오후 강수확률을 자연스럽게 포함한다.
+- 강수확률은 가능하면 숫자로 언급한다.
+- 강수확률이 40% 이상이면 우산 조언을 자연스럽게 포함한다.
+- 강수량이 많으면 "비가 꽤 올 수 있습니다" 또는 "강한 비에 주의가 필요합니다"처럼 표현한다.
+- 강수량이 적으면 "약하게 지나갈 가능성이 있습니다" 정도로 표현한다.
+- 새벽/저녁 특이사항이 있으면 출근길/퇴근길/늦은 귀가 관점으로 짧게 언급한다.
+- API 데이터에 없는 태풍, 호우특보, 폭설 같은 표현은 추가하지 않는다.
+- 인사말, 날짜, 뉴스, 마무리 문장은 쓰지 않는다.
+- 응답은 JSON만 반환한다.
+
+JSON 형식:
+{
+  "briefing": "날씨 브리핑 문장"
+}
+
+날씨 데이터:
+${JSON.stringify(weather, null, 2)}`;
+}
+
 function parseGeminiText(data) {
   return data?.candidates?.[0]?.content?.parts
     ?.map((part) => part.text)
@@ -56,16 +80,12 @@ function parseGeminiText(data) {
     .trim();
 }
 
-export async function selectTopNewsWithGemini(candidates = []) {
+async function generateGeminiJson(prompt, { maxOutputTokens = 700, temperature = 0.1 } = {}) {
   const apiKey = process.env.GEMINI_API_KEY;
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
 
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY is not configured');
-  }
-
-  if (candidates.length === 0) {
-    return [];
   }
 
   const request = {
@@ -77,12 +97,12 @@ export async function selectTopNewsWithGemini(candidates = []) {
     body: JSON.stringify({
       contents: [
         {
-          parts: [{ text: buildNewsPrompt(candidates) }]
+          parts: [{ text: prompt }]
         }
       ],
       generationConfig: {
-        temperature: 0.1,
-        maxOutputTokens: 700,
+        temperature,
+        maxOutputTokens,
         responseMimeType: 'application/json'
       }
     })
@@ -102,7 +122,30 @@ export async function selectTopNewsWithGemini(candidates = []) {
 
   const data = await response.json();
   const text = parseGeminiText(data);
-  const parsed = text ? safeJsonParse(text) : null;
+  return text ? safeJsonParse(text) : null;
+}
+
+export async function createWeatherBriefingWithGemini(weather) {
+  const parsed = await generateGeminiJson(buildWeatherPrompt(weather), {
+    maxOutputTokens: 700,
+    temperature: 0.2
+  });
+
+  const briefing = String(parsed?.briefing ?? '').trim();
+
+  if (!briefing) {
+    throw new Error('Gemini weather response did not include briefing');
+  }
+
+  return briefing;
+}
+
+export async function selectTopNewsWithGemini(candidates = []) {
+  if (candidates.length === 0) {
+    return [];
+  }
+
+  const parsed = await generateGeminiJson(buildNewsPrompt(candidates));
 
   if (!parsed?.items || !Array.isArray(parsed.items)) {
     throw new Error('Gemini response did not include JSON items');
