@@ -84,6 +84,25 @@ function parseGeminiText(data) {
     .trim();
 }
 
+function getNumericTokens(value = '') {
+  return value.match(/\d+(?:\.\d+)?\s*(?:월|일|%|원|달러|조|억|만|선|배|년)?/g) ?? [];
+}
+
+function hasUnsupportedNumericToken(summary, originalText) {
+  return getNumericTokens(summary).some((token) => !originalText.includes(token));
+}
+
+function getSafeNewsSummary(selected, original) {
+  const summary = String(selected.summary ?? '').trim();
+  const originalText = `${original.title ?? ''} ${original.description ?? ''}`;
+
+  if (!summary || hasUnsupportedNumericToken(summary, originalText)) {
+    return String(original.description || original.title || '').trim();
+  }
+
+  return summary;
+}
+
 async function generateGeminiJson(prompt, { maxOutputTokens = 700, temperature = 0.1 } = {}) {
   const apiKey = process.env.GEMINI_API_KEY;
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
@@ -166,7 +185,7 @@ export async function selectTopNewsWithGemini(candidates = []) {
 
       return {
         title: original.title,
-        summary: String(selected.summary ?? '').trim(),
+        summary: getSafeNewsSummary(selected, original),
         category: original.category,
         link: original.link,
         pubDate: original.pubDate,
