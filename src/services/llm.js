@@ -138,6 +138,41 @@ function isMarketMovementSummary(item) {
   return hasMarketTarget && hasMovement && !hasSubstance;
 }
 
+function normalizeSelectedNewsItem(selected, original) {
+  const briefTitle = getSafeNewsText(selected.briefTitle, original) || compactTitle(original.title);
+  const summary = getSafeNewsText(selected.summary, original) || getFallbackNewsSummary(original);
+  const topicKey = String(selected.topicKey ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '');
+
+  if (!briefTitle || !summary) {
+    return null;
+  }
+
+  return {
+    title: original.title,
+    originalTitle: original.title,
+    briefTitle,
+    summary,
+    topicKey,
+    category: original.category,
+    link: original.link,
+    pubDate: original.pubDate,
+    source: 'llm'
+  };
+}
+
+function compactTitle(value = '') {
+  const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+
+  if (text.length <= 35) {
+    return text;
+  }
+
+  return `${text.slice(0, 32)}...`;
+}
+
 async function generateGeminiJson(prompt, { maxOutputTokens = 700, temperature = 0.1 } = {}) {
   const apiKey = process.env.GEMINI_API_KEY;
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
@@ -332,8 +367,7 @@ export async function selectTopNewsWithGemini(candidates = []) {
   }
 
   const usedTopicKeys = new Set();
-
-  return parsed.items
+  const normalizedSelected = parsed.items
     .slice(0, 3)
     .map((selected) => {
       const original = candidates[Number(selected.id) - 1];
@@ -342,10 +376,13 @@ export async function selectTopNewsWithGemini(candidates = []) {
         return null;
       }
 
-      const topicKey = String(selected.topicKey ?? '')
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9_-]/g, '');
+      const normalized = normalizeSelectedNewsItem(selected, original);
+
+      if (!normalized) {
+        return null;
+      }
+
+      const { topicKey } = normalized;
 
       if (topicKey && usedTopicKeys.has(topicKey)) {
         return null;
@@ -355,19 +392,31 @@ export async function selectTopNewsWithGemini(candidates = []) {
         usedTopicKeys.add(topicKey);
       }
 
-      return {
-        title: original.title,
-        originalTitle: original.title,
-        briefTitle: getSafeNewsText(selected.briefTitle, original),
-        summary: getSafeNewsText(selected.summary, original) || getFallbackNewsSummary(original),
-        topicKey,
-        category: original.category,
-        link: original.link,
-        pubDate: original.pubDate,
-        source: 'llm'
-      };
+      return normalized;
     })
     .filter(Boolean)
-    .filter((item) => !isMarketMovementSummary(item))
-    .filter((item) => item.title && item.summary);
+    .filter((item) => !isMarketMovementSummary(item));
+
+  const selectedIds = new Set(
+    normalizedSelected.map((item) => candidates.findIndex((candidate) => candidate.title === item.title))
+  );
+  const fallbackPadding = candidates
+    .map((candidate, index) => ({ candidate, index }))
+    .filter(({ candidate, index }) => !selectedIds.has(index))
+    .map(({ candidate }) => ({
+      title: candidate.title,
+      originalTitle: candidate.title,
+      briefTitle: compactTitle(candidate.title),
+      summary: compactTitle(candidate.description || candidate.title),
+      topicKey: '',
+      category: candidate.category,
+      link: candidate.link,
+      pubDate: candidate.pubDate,
+      source: 'naver'
+    }))
+    .filter((item) => !isMarketMovementSummary(item));
+
+  return [...normalizedSelected, ...fallbackPadding]
+    .filter((item, index, array) => index === array.findIndex((other) => other.title === item.title))
+    .slice(0, 3);
 }
