@@ -25,6 +25,24 @@ export function formatCalendarItems(items = []) {
   ].join('\n');
 }
 
+export function formatMarketCheck(marketCheck) {
+  if (!marketCheck?.available && !marketCheck?.cryptoCheck?.available) {
+    return '';
+  }
+
+  const lines = ['시장 체크입니다.'];
+
+  if (marketCheck.summary) {
+    lines.push(marketCheck.summary);
+  }
+
+  if (marketCheck.cryptoCheck?.summary) {
+    lines.push(marketCheck.cryptoCheck.summary);
+  }
+
+  return lines.length > 1 ? lines.join('\n') : '';
+}
+
 export function formatServiceError(name) {
   return `${name} 정보는 현재 불러오지 못했습니다.`;
 }

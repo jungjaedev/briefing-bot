@@ -1,8 +1,9 @@
 import { getTodayEvents } from './services/calendar.js';
+import { getMarketCheck } from './services/market.js';
 import { getTopNews } from './services/news.js';
 import { getWeather } from './services/weather.js';
 import { getKoreanDate, getKoreanDateKey } from './utils/date.js';
-import { formatCalendarItems, formatNewsItems, formatServiceError } from './utils/format.js';
+import { formatCalendarItems, formatMarketCheck, formatNewsItems, formatServiceError } from './utils/format.js';
 
 async function settleService(label, serviceCall) {
   try {
@@ -17,8 +18,9 @@ export async function createBriefing(date = new Date()) {
   const dateKey = getKoreanDateKey(date);
   const displayDate = getKoreanDate(date);
 
-  const [weatherResult, newsResult, calendarResult] = await Promise.all([
+  const [weatherResult, marketResult, newsResult, calendarResult] = await Promise.all([
     settleService('weather', () => getWeather({ dateKey })),
+    settleService('market', () => getMarketCheck({ dateKey })),
     settleService('news', () => getTopNews({ dateKey })),
     settleService('calendar', () => getTodayEvents({ dateKey }))
   ]);
@@ -43,6 +45,13 @@ export async function createBriefing(date = new Date()) {
     }
   } else {
     lines.push(formatServiceError('날씨'), '');
+  }
+
+  if (marketResult.ok) {
+    const marketText = formatMarketCheck(marketResult.data);
+    if (marketText) {
+      lines.push(marketText, '');
+    }
   }
 
   if (newsResult.ok) {

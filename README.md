@@ -19,6 +19,7 @@ src/services/weather.js
 src/services/news.js
 src/services/calendar.js
 src/services/llm.js
+src/services/market.js
 src/utils/date.js
 src/utils/format.js
 src/utils/text.js
@@ -60,6 +61,7 @@ GEMINI_MODEL=gemini-2.5-flash-lite
 - 날씨는 Open-Meteo를 사용하므로 별도 API 키가 필요 없습니다. 기본 위치는 `src/services/weather.js`의 `DEFAULT_LOCATION`에 있는 서울 도봉구입니다.
 - 뉴스 후보는 네이버 뉴스 검색 API에서 가져옵니다. 경제/국제 중심 쿼리로 수집하고, 정치/지역기관 홍보/포토/행사성 기사는 Gemini에 넘기기 전에 제거합니다.
 - Gemini는 정제된 후보 중 최대 3개를 id로 고르고 아침 브리핑용 문장으로 요약합니다.
+- 시장 체크는 `src/services/market.js`에 분리되어 있습니다. 아직 실제 환율, 증시, 유가, 비트코인, 이더리움 시세 API는 연결하지 않았으므로 기본 출력에서는 생략됩니다.
 - `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `GEMINI_API_KEY`가 없거나 API 호출이 실패하면 fallback 브리핑을 반환합니다.
 
 ## API
@@ -196,6 +198,7 @@ http://168.107.7.60/briefing
 - 날씨: `src/services/weather.js`
 - 뉴스 후보 수집: `src/services/news.js`
 - Gemini 요약: `src/services/llm.js`
+- 시장 체크: `src/services/market.js`
 - 캘린더: `src/services/calendar.js`
 
 API 키와 클라이언트 시크릿은 코드에 직접 넣지 말고 `.env`에만 저장하세요. `.env.example`에는 필요한 변수 이름만 추가합니다.
