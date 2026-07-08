@@ -2,7 +2,7 @@
 
 Node.js + Express 기반 아침 브리핑 봇입니다. iPhone 단축어에서 `GET /briefing`을 호출하면 한국어 `plain text` 브리핑을 반환합니다.
 
-API 키가 없으면 mock 뉴스로 실행되고, 키가 있으면 Open-Meteo 날씨, 네이버 뉴스 후보, Gemini 요약을 사용합니다. 캘린더 연동은 `src/services/calendar.js`에 추후 추가할 수 있도록 분리했습니다.
+API 키가 없으면 mock 뉴스로 실행되고, 키가 있으면 Open-Meteo 날씨, 네이버 뉴스 후보, Gemini 요약을 사용합니다. Gemini 호출이 실패하면 GroqCloud 또는 xAI Grok fallback을 사용할 수 있습니다. 캘린더 연동은 `src/services/calendar.js`에 추후 추가할 수 있도록 분리했습니다.
 
 ## 요구사항
 
@@ -58,6 +58,13 @@ NAVER_CLIENT_SECRET=
 
 GEMINI_API_KEY=
 GEMINI_MODEL=gemini-2.5-flash-lite
+
+GROQ_API_KEY=
+GROQ_MODEL=llama-3.1-8b-instant
+GROK_API_KEY=
+
+XAI_API_KEY=
+XAI_GROK_MODEL=grok-4.3
 ```
 
 - 날씨와 대기질은 Open-Meteo를 사용하므로 별도 API 키가 필요 없습니다. 기본 위치는 `src/services/weather.js`의 `DEFAULT_LOCATION`에 있는 서울 도봉구입니다.
@@ -65,8 +72,11 @@ GEMINI_MODEL=gemini-2.5-flash-lite
 - 날짜 정보는 `src/services/dayInfo.js`에서 당일 공휴일/대체공휴일/기념일/절기와 월요일 주간 항목을 짧게 표시합니다.
 - 뉴스 후보는 네이버 뉴스 검색 API에서 가져옵니다. 경제/국제 중심 쿼리로 수집하고, 정치/지역기관 홍보/포토/행사성 기사는 Gemini에 넘기기 전에 제거합니다.
 - Gemini는 정제된 후보 중 최대 3개를 id로 고르고 아침 브리핑용 문장으로 요약합니다.
+- `GROQ_API_KEY`가 있으면 Gemini 쿼터 초과나 일시 장애 때 GroqCloud Chat Completions API로 한 번 더 시도합니다. `GROK_API_KEY` 값이 `gsk_`로 시작해도 GroqCloud 키로 인식합니다.
+- GroqCloud fallback 기본 모델은 가벼운 `llama-3.1-8b-instant`입니다. 필요하면 `GROQ_MODEL`로 바꿀 수 있습니다.
+- xAI Grok API 키를 쓰고 싶으면 `GROK_API_KEY` 또는 `XAI_API_KEY`에 `xai-` 키를 넣으면 됩니다. 기본 모델은 `grok-4.3`이고, 필요하면 `XAI_GROK_MODEL`로 바꿀 수 있습니다.
 - 시장 체크는 `src/services/market.js`에 분리되어 있습니다. 아직 실제 환율, 증시, 유가, 비트코인, 이더리움 시세 API는 연결하지 않았으므로 기본 출력에서는 생략됩니다.
-- `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `GEMINI_API_KEY`가 없거나 API 호출이 실패하면 fallback 브리핑을 반환합니다.
+- `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `GEMINI_API_KEY`가 없거나 API 호출이 실패하면 fallback 브리핑을 반환합니다. GroqCloud 또는 xAI 키는 Gemini 실패 시 보조 LLM으로만 사용됩니다.
 
 ## API
 
@@ -202,7 +212,7 @@ http://168.107.7.60/briefing
 - 날씨: `src/services/weather.js`
 - 대기질: `src/services/airQuality.js`
 - 뉴스 후보 수집: `src/services/news.js`
-- Gemini 요약: `src/services/llm.js`
+- LLM 요약: `src/services/llm.js`
 - 시장 체크: `src/services/market.js`
 - 날짜 정보: `src/services/dayInfo.js`
 - 캘린더: `src/services/calendar.js`

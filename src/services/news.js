@@ -84,10 +84,20 @@ function isSameKoreanDate(pubDate, dateKey) {
   return formatted === dateKey;
 }
 
+function compactSummary(value = '') {
+  const normalized = value.replace(/\s+/g, ' ').trim();
+
+  if (normalized.length <= 90) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, 87)}...`;
+}
+
 function fallbackTopNews(candidates) {
   return candidates.slice(0, 3).map((item) => ({
     title: item.title,
-    summary: item.description || item.title,
+    summary: compactSummary(item.description || item.title),
     category: item.category,
     link: item.link,
     pubDate: item.pubDate,
@@ -249,7 +259,7 @@ export async function getTopNews({ dateKey } = {}) {
     const selected = await selectTopNewsWithGemini(preparedCandidates);
     return selected.length > 0 ? selected : fallbackTopNews(preparedCandidates);
   } catch (error) {
-    console.error('[news] Gemini selection failed, using Naver fallback', error);
+    console.error('[news] LLM selection failed, using Naver fallback', error);
     return fallbackTopNews(preparedCandidates);
   }
 }

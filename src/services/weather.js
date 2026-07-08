@@ -375,7 +375,7 @@ export async function getWeather({ dateKey } = {}) {
   try {
     weather.briefingText = await createWeatherBriefingWithGemini(weather);
   } catch (error) {
-    console.error('[weather] Gemini weather briefing failed, using fallback', error);
+    console.error('[weather] LLM weather briefing failed, using fallback', error);
     weather.briefingText = buildFallbackWeatherBriefing(weather);
   }
 

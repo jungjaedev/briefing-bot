@@ -1,6 +1,8 @@
 import { safeJsonParse } from '../utils/text.js';
 
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+const GROK_CHAT_COMPLETIONS_URL = 'https://api.x.ai/v1/chat/completions';
+const GROQ_CHAT_COMPLETIONS_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 function wait(ms) {
   return new Promise((resolve) => {
@@ -84,6 +86,10 @@ function parseGeminiText(data) {
     .trim();
 }
 
+function parseChatCompletionText(data) {
+  return data?.choices?.[0]?.message?.content?.trim();
+}
+
 function getNumericTokens(value = '') {
   return value.match(/\d+(?:\.\d+)?\s*(?:월|일|%|원|달러|조|억|만|선|배|년)?/g) ?? [];
 }
@@ -148,8 +154,126 @@ async function generateGeminiJson(prompt, { maxOutputTokens = 700, temperature =
   return text ? safeJsonParse(text) : null;
 }
 
+async function fetchChatCompletionJson(
+  { providerName, url, apiKey, model, tokenField = 'max_tokens' },
+  prompt,
+  { maxOutputTokens = 700, temperature = 0.1 } = {}
+) {
+  if (!apiKey) {
+    throw new Error(`${providerName} API key is not configured`);
+  }
+
+  const body = {
+    model,
+    messages: [
+      {
+        role: 'user',
+        content: prompt
+      }
+    ],
+    temperature,
+    response_format: {
+      type: 'json_object'
+    }
+  };
+
+  body[tokenField] = maxOutputTokens;
+
+  const request = {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  };
+
+  let response = await fetch(url, request);
+
+  if (response.status === 429 || response.status === 503) {
+    await wait(1200);
+    response = await fetch(url, request);
+  }
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`${providerName} API failed: ${response.status} ${body}`);
+  }
+
+  const data = await response.json();
+  const text = parseChatCompletionText(data);
+  return text ? safeJsonParse(text) : null;
+}
+
+function getGroqApiKey() {
+  const groqApiKey = process.env.GROQ_API_KEY;
+  const grokApiKey = process.env.GROK_API_KEY;
+
+  if (groqApiKey) {
+    return groqApiKey;
+  }
+
+  return grokApiKey?.startsWith('gsk_') ? grokApiKey : null;
+}
+
+function getXaiApiKey() {
+  const xaiApiKey = process.env.XAI_API_KEY;
+  const grokApiKey = process.env.GROK_API_KEY;
+
+  if (xaiApiKey) {
+    return xaiApiKey;
+  }
+
+  return grokApiKey && !grokApiKey.startsWith('gsk_') ? grokApiKey : null;
+}
+
+async function generateGroqJson(prompt, options) {
+  return fetchChatCompletionJson(
+    {
+      providerName: 'Groq',
+      url: GROQ_CHAT_COMPLETIONS_URL,
+      apiKey: getGroqApiKey(),
+      model: process.env.GROQ_MODEL || process.env.GROK_MODEL || 'llama-3.1-8b-instant',
+      tokenField: 'max_completion_tokens'
+    },
+    prompt,
+    options
+  );
+}
+
+async function generateXaiGrokJson(prompt, options) {
+  return fetchChatCompletionJson(
+    {
+      providerName: 'xAI Grok',
+      url: GROK_CHAT_COMPLETIONS_URL,
+      apiKey: getXaiApiKey(),
+      model: process.env.XAI_GROK_MODEL || process.env.GROK_MODEL || 'grok-4.3'
+    },
+    prompt,
+    options
+  );
+}
+
+async function generateLlmJson(prompt, options) {
+  try {
+    return await generateGeminiJson(prompt, options);
+  } catch (geminiError) {
+    if (!getGroqApiKey() && !getXaiApiKey()) {
+      throw geminiError;
+    }
+
+    console.error('[llm] Gemini failed, trying fallback LLM', geminiError);
+
+    if (getGroqApiKey()) {
+      return generateGroqJson(prompt, options);
+    }
+
+    return generateXaiGrokJson(prompt, options);
+  }
+}
+
 export async function createWeatherBriefingWithGemini(weather) {
-  const parsed = await generateGeminiJson(buildWeatherPrompt(weather), {
+  const parsed = await generateLlmJson(buildWeatherPrompt(weather), {
     maxOutputTokens: 700,
     temperature: 0.2
   });
@@ -157,7 +281,7 @@ export async function createWeatherBriefingWithGemini(weather) {
   const briefing = String(parsed?.briefing ?? '').trim();
 
   if (!briefing) {
-    throw new Error('Gemini weather response did not include briefing');
+    throw new Error('LLM weather response did not include briefing');
   }
 
   return briefing;
@@ -168,10 +292,10 @@ export async function selectTopNewsWithGemini(candidates = []) {
     return [];
   }
 
-  const parsed = await generateGeminiJson(buildNewsPrompt(candidates));
+  const parsed = await generateLlmJson(buildNewsPrompt(candidates));
 
   if (!parsed?.items || !Array.isArray(parsed.items)) {
-    throw new Error('Gemini response did not include JSON items');
+    throw new Error('LLM response did not include JSON items');
   }
 
   return parsed.items
@@ -189,7 +313,7 @@ export async function selectTopNewsWithGemini(candidates = []) {
         category: original.category,
         link: original.link,
         pubDate: original.pubDate,
-        source: 'gemini'
+        source: 'llm'
       };
     })
     .filter(Boolean)

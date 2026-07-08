@@ -1,6 +1,9 @@
 import 'dotenv/config';
+import dns from 'node:dns';
 import express from 'express';
 import { createBriefing } from './briefing.js';
+
+dns.setDefaultResultOrder('ipv4first');
 
 const app = express();
 const port = Number.parseInt(process.env.PORT ?? '3000', 10);
