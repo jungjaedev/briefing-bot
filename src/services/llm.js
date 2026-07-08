@@ -130,6 +130,15 @@ function getFallbackNewsSummary(original) {
     .trim();
 }
 
+function isMarketMovementSummary(item) {
+  const text = `${item.briefTitle ?? ''} ${item.summary ?? ''}`;
+  const hasMarketTarget = /코스피|코스닥|나스닥|다우|S&P|환율|원\/달러|원\/엔|유가|국제유가|WTI|브렌트유|비트코인|이더리움/.test(text);
+  const hasMovement = /급등|급락|상승|하락|강세|약세|마감|출발|돌파|후퇴|반등|조정|변동성|압박/.test(text);
+  const hasSubstance = /정책|규제|관세|금리|연준|FOMC|실적|인수|합병|투자|공급망|파업|해킹|ETF|경상수지|수출|수입|무역수지|물가|고용|법안|제재|협상|계약|생산|공장/.test(text);
+
+  return hasMarketTarget && hasMovement && !hasSubstance;
+}
+
 async function generateGeminiJson(prompt, { maxOutputTokens = 700, temperature = 0.1 } = {}) {
   const apiKey = process.env.GEMINI_API_KEY;
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
@@ -356,5 +365,6 @@ export async function selectTopNewsWithGemini(candidates = []) {
       };
     })
     .filter(Boolean)
+    .filter((item) => !isMarketMovementSummary(item))
     .filter((item) => item.title && item.summary);
 }
