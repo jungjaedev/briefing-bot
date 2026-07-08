@@ -1,6 +1,6 @@
 import { createWeatherBriefingWithGemini } from './llm.js';
 
-const DEFAULT_LOCATION = {
+export const DEFAULT_LOCATION = {
   name: '서울 도봉구',
   latitude: 37.6688,
   longitude: 127.0471

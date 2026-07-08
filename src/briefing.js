@@ -1,4 +1,6 @@
+import { getAirQuality } from './services/airQuality.js';
 import { getTodayEvents } from './services/calendar.js';
+import { getDayInfo } from './services/dayInfo.js';
 import { getMarketCheck } from './services/market.js';
 import { getTopNews } from './services/news.js';
 import { getWeather } from './services/weather.js';
@@ -18,14 +20,24 @@ export async function createBriefing(date = new Date()) {
   const dateKey = getKoreanDateKey(date);
   const displayDate = getKoreanDate(date);
 
-  const [weatherResult, marketResult, newsResult, calendarResult] = await Promise.all([
+  const dayInfo = getDayInfo(date);
+  const [weatherResult, airQualityResult, marketResult, newsResult, calendarResult] = await Promise.all([
     settleService('weather', () => getWeather({ dateKey })),
+    settleService('airQuality', () => getAirQuality({ dateKey })),
     settleService('market', () => getMarketCheck({ dateKey })),
     settleService('news', () => getTopNews({ dateKey })),
     settleService('calendar', () => getTodayEvents({ dateKey }))
   ]);
 
   const lines = ['좋은 아침입니다.', '', `오늘은 ${displayDate}입니다.`, ''];
+
+  if (dayInfo.todayText) {
+    lines.push(dayInfo.todayText, '');
+  }
+
+  if (dayInfo.weekText) {
+    lines.push(dayInfo.weekText, '');
+  }
 
   if (weatherResult.ok) {
     const weather = weatherResult.data;
@@ -45,6 +57,10 @@ export async function createBriefing(date = new Date()) {
     }
   } else {
     lines.push(formatServiceError('날씨'), '');
+  }
+
+  if (airQualityResult.ok && airQualityResult.data?.briefingText) {
+    lines.push(airQualityResult.data.briefingText, '');
   }
 
   if (marketResult.ok) {
