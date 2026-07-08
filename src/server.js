@@ -4,6 +4,7 @@ import { createBriefing } from './briefing.js';
 
 const app = express();
 const port = Number.parseInt(process.env.PORT ?? '3000', 10);
+const host = process.env.HOST ?? '127.0.0.1';
 
 app.disable('x-powered-by');
 
@@ -33,8 +34,8 @@ app.use((error, req, res, next) => {
   res.status(500).type('text/plain; charset=utf-8').send('브리핑을 생성하는 중 오류가 발생했습니다.');
 });
 
-const server = app.listen(port, '0.0.0.0', () => {
-  console.log(`Morning briefing bot listening on port ${port}`);
+const server = app.listen(port, host, () => {
+  console.log(`Morning briefing bot listening on ${host}:${port}`);
 });
 
 server.on('error', (error) => {
