@@ -11,14 +11,13 @@ function wait(ms) {
 }
 
 function buildNewsPrompt(candidates) {
-  const compactCandidates = candidates.map((item, index) => ({
+  const compactCandidates = candidates.slice(0, 12).map((item, index) => ({
     id: index + 1,
-    title: item.title,
-    description: item.description,
+    title: String(item.title ?? '').slice(0, 90),
+    description: String(item.description ?? '').slice(0, 180),
     category: item.category,
     pubDate: item.pubDate,
-    score: item.score,
-    link: item.link
+    score: item.score
   }));
 
   return `아래 뉴스 후보 중 한국 사용자가 아침에 알면 좋은 주요 뉴스 최대 3개를 골라줘.
@@ -323,7 +322,10 @@ export async function selectTopNewsWithGemini(candidates = []) {
     return [];
   }
 
-  const parsed = await generateLlmJson(buildNewsPrompt(candidates));
+  const parsed = await generateLlmJson(buildNewsPrompt(candidates), {
+    maxOutputTokens: 500,
+    temperature: 0.1
+  });
 
   if (!parsed?.items || !Array.isArray(parsed.items)) {
     throw new Error('LLM response did not include JSON items');
