@@ -6,7 +6,8 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "node --watch src/server.js"
+    "dev": "node --watch src/server.js",
+    "briefing:daily": "node scripts/daily-briefing.mjs"
   },
   "engines": {
     "node": ">=20"

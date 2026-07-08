@@ -23,9 +23,11 @@ src/services/llm.js
 src/services/market.js
 src/services/dayInfo.js
 src/services/briefingCache.js
+src/services/telegram.js
 src/utils/date.js
 src/utils/format.js
 src/utils/text.js
+scripts/daily-briefing.mjs
 .env.example
 .gitignore
 README.md
@@ -71,6 +73,9 @@ XAI_API_KEY=
 XAI_GROK_MODEL=grok-4.3
 
 ENABLE_MARKET_CHECK=false
+
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=
 ```
 
 - 날씨와 대기질은 Open-Meteo를 사용하므로 별도 API 키가 필요 없습니다. 기본 위치는 `src/services/weather.js`의 `DEFAULT_LOCATION`에 있는 서울 도봉구입니다.
@@ -89,6 +94,7 @@ ENABLE_MARKET_CHECK=false
 - 유가는 공개 시세 소스를 사용하며, 국내 주유소 평균가가 아니라 국제유가(WTI) 기준으로 표시합니다.
 - 코인 시세는 Upbit Quotation API를 사용하므로 별도 API 키가 필요 없습니다. 유가, 미국 증시, 국내 증시는 확장 포인트만 남겨두었습니다.
 - `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `GEMINI_API_KEY`가 없거나 API 호출이 실패하면 fallback 브리핑을 반환합니다. GroqCloud 또는 xAI 키는 Gemini 실패 시 보조 LLM으로만 사용됩니다.
+- 텔레그램 자동 발송을 쓰려면 `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`를 넣고 `npm run briefing:daily`를 cron에서 하루 1회 실행하면 됩니다.
 
 ## API
 
@@ -117,6 +123,27 @@ ENABLE_MARKET_CHECK=false
 ### `GET /briefing/refresh?token=...`
 
 `BRIEFING_REFRESH_TOKEN`이 일치할 때만 오늘 브리핑을 강제로 새로 생성하고 캐시 파일을 덮어씁니다.
+
+## 서버 cron으로 매일 06:30 생성 + 텔레그램 발송
+
+권장 방식은 서버가 매일 한 번 브리핑을 생성하고, 같은 내용을 텔레그램으로 보내는 구조입니다.
+
+```bash
+cd ~/briefing-bot
+npm run briefing:daily
+```
+
+cron 예시:
+
+```cron
+30 6 * * * cd /home/ubuntu/briefing-bot && /usr/bin/npm run briefing:daily >> /home/ubuntu/briefing-bot/logs/briefing-cron.log 2>&1
+```
+
+이렇게 하면 매일 06:30에:
+
+1. 브리핑을 새로 생성하고 `data/briefing-cache.json`에 덮어씀
+2. 텔레그램으로 전송
+3. `/briefing`은 그날 캐시를 그대로 읽음
 
 ## Oracle Cloud Ubuntu 24.04 배포
 
