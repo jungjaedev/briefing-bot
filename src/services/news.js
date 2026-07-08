@@ -6,12 +6,13 @@ const NEWS_QUERIES = [
   { query: '반도체 삼성전자 SK하이닉스 AI', category: '경제/산업', display: '10' },
   { query: '미국 중국 일본 국제 경제', category: '국제/경제', display: '10' },
   { query: '연준 FOMC 관세 유가 국제', category: '국제/경제', display: '10' },
+  { query: '미국 이란 이스라엘 중동 공습', category: '국제/안보', display: '10' },
+  { query: '중동 호르무즈 이란 미국 국제유가', category: '국제/안보', display: '8' },
   { query: 'AI 빅테크 엔비디아 오픈AI', category: 'IT/산업', display: '8' },
   { query: '비트코인 ETF 규제 기관 투자', category: '경제/금융', display: '5' }
 ];
 
 const EXCLUDE_KEYWORDS = [
-  '대통령', '국무회의', '총리', '부총리', '장관', '차관',
   '국회', '국회의원', '민주당', '국민의힘', '조국혁신당',
   '선거', '공천', '탄핵', '특검', '청문회', '정당',
   '[포토]', '포토', '영상', '오늘의 사진', '말말말',
@@ -20,6 +21,10 @@ const EXCLUDE_KEYWORDS = [
   '상반기 재정', '신속 집행', '지원 총력', '성장펀드',
   '구축사업 선정', '정식 가동', '성과급', '간담회',
   '열애', '결혼', '이혼'
+];
+
+const DOMESTIC_GOVERNMENT_KEYWORDS = [
+  '대통령', '국무회의', '총리', '부총리', '장관', '차관'
 ];
 
 const LOW_PRIORITY_KEYWORDS = [
@@ -37,7 +42,8 @@ const HIGH_PRIORITY_KEYWORDS = [
   'AI', '엔비디아', '연준', 'FOMC', '미국', '중국',
   '일본', '유럽', '중동', '우크라이나', '이스라엘',
   '이란', '트럼프', '관세', '나토', '빅테크',
-  '비트코인', '현물 ETF', '스테이블코인', '대형 거래소', '해킹', '기관'
+  '비트코인', '현물 ETF', '스테이블코인', '대형 거래소', '해킹', '기관',
+  '공습', '미사일', '핵시설', '호르무즈', '제재', '군사', '안보'
 ];
 
 const SPORTS_KEYWORDS = ['축구', '야구', '농구', '배구', '골프', 'K리그', 'MLB', 'NBA'];
@@ -61,7 +67,13 @@ const MARKET_NEWS_ALLOW_KEYWORDS = [
   '정책', '규제', '관세', '금리', '연준', 'FOMC', '실적',
   '인수', '합병', '투자', '공급망', '파업', '해킹', 'ETF',
   '경상수지', '수출', '수입', '무역수지', '물가', '고용',
-  '법안', '제재', '협상', '계약', '생산', '공장'
+  '법안', '제재', '협상', '계약', '생산', '공장',
+  '중동', '이란', '이스라엘', '호르무즈', '공습', '미사일', '안보'
+];
+const INTERNATIONAL_SECURITY_KEYWORDS = [
+  '미국', '이란', '이스라엘', '중동', '호르무즈', '공습',
+  '미사일', '핵시설', '핵협상', '제재', '군사', '전쟁',
+  '분쟁', '안보', '나토', '우크라이나', '러시아', '드론'
 ];
 
 function getMockNews(dateKey) {
@@ -140,6 +152,8 @@ function hasAnyKeyword(text, keywords) {
 function isExcludedNews(item) {
   const text = getNewsText(item);
   const hasExcludedKeyword = hasAnyKeyword(text, EXCLUDE_KEYWORDS);
+  const hasDomesticGovernmentKeyword = hasAnyKeyword(text, DOMESTIC_GOVERNMENT_KEYWORDS);
+  const isInternationalSecurity = hasAnyKeyword(text, INTERNATIONAL_SECURITY_KEYWORDS);
   const isSports = hasAnyKeyword(text, SPORTS_KEYWORDS);
   const isAllowedSports = hasAnyKeyword(text, SPORTS_ALLOW_KEYWORDS);
   const isLowQualityCrypto = hasAnyKeyword(text, CRYPTO_EXCLUDE_KEYWORDS);
@@ -148,7 +162,11 @@ function isExcludedNews(item) {
     hasAnyKeyword(text, MARKET_MOVE_KEYWORDS) &&
     !hasAnyKeyword(text, MARKET_NEWS_ALLOW_KEYWORDS);
 
-  return hasExcludedKeyword || isLowQualityCrypto || isMarketCheckOnly || (isSports && !isAllowedSports);
+  return hasExcludedKeyword ||
+    (hasDomesticGovernmentKeyword && !isInternationalSecurity) ||
+    isLowQualityCrypto ||
+    isMarketCheckOnly ||
+    (isSports && !isAllowedSports);
 }
 
 function scoreNews(item) {
@@ -175,8 +193,16 @@ function scoreNews(item) {
     score += 7;
   }
 
+  if (item.category === '국제/안보') {
+    score += 10;
+  }
+
   if (item.category === 'IT/산업') {
     score += 4;
+  }
+
+  if (hasAnyKeyword(text, INTERNATIONAL_SECURITY_KEYWORDS)) {
+    score += 5;
   }
 
   if (hasAnyKeyword(text, CRYPTO_ALLOW_KEYWORDS)) {
