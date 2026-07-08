@@ -1,7 +1,7 @@
-const EXCHANGE_API_URL = 'https://www.koreaexim.go.kr/site/program/financial/exchangeJSON';
+const FX_API_URL = 'https://api.frankfurter.app/latest';
 const UPBIT_TICKER_URL = 'https://api.upbit.com/v1/ticker';
+const OIL_CHART_URL = 'https://query1.finance.yahoo.com/v8/finance/chart/CL=F';
 
-const EXCHANGE_TARGETS = new Set(['USD', 'JPY(100)']);
 const CRYPTO_MARKETS = ['KRW-BTC', 'KRW-ETH'];
 
 function isMarketCheckEnabled() {
@@ -19,23 +19,6 @@ function parseNumber(value) {
 
   const parsed = Number.parseFloat(value.replace(/,/g, ''));
   return Number.isFinite(parsed) ? parsed : null;
-}
-
-function formatKoreanDate(date) {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).format(date).replaceAll('-', '');
-}
-
-function getRecentDateKeys(date = new Date(), days = 7) {
-  return Array.from({ length: days }, (_, index) => {
-    const target = new Date(date);
-    target.setDate(target.getDate() - index);
-    return formatKoreanDate(target);
-  });
 }
 
 function formatWon(value, { compact = false } = {}) {
@@ -64,65 +47,74 @@ function formatExchangeRate(rate) {
     : `원/달러 환율은 ${valueText}`;
 }
 
-function normalizeExchangeRows(rows = []) {
-  return rows
-    .filter((row) => EXCHANGE_TARGETS.has(row.cur_unit))
-    .map((row) => ({
-      code: row.cur_unit === 'JPY(100)' ? 'JPY' : row.cur_unit,
-      unit: row.cur_unit,
-      name: row.cur_nm,
-      value: parseNumber(row.deal_bas_r),
-      source: 'koreaexim'
-    }))
-    .filter((row) => row.value !== null);
-}
-
-async function fetchExchangeRatesForDate(dateKey) {
-  const apiKey = process.env.EXCHANGE_API_KEY;
-
-  if (!apiKey) {
-    return [];
+function formatOilPrice(price) {
+  if (!Number.isFinite(price)) {
+    return null;
   }
 
+  return `${Math.round(price).toLocaleString('ko-KR')}달러`;
+}
+
+async function fetchExchangeRates() {
   const params = new URLSearchParams({
-    authkey: apiKey,
-    searchdate: dateKey,
-    data: 'AP01'
+    from: 'USD',
+    to: 'KRW,JPY'
   });
 
-  const response = await fetch(`${EXCHANGE_API_URL}?${params}`);
+  const response = await fetch(`${FX_API_URL}?${params}`, {
+    headers: {
+      Accept: 'application/json'
+    }
+  });
 
   if (!response.ok) {
-    throw new Error(`Exchange API failed: ${response.status}`);
+    throw new Error(`Frankfurter API failed: ${response.status}`);
   }
 
   const data = await response.json();
+  const usdToKrw = parseNumber(data?.rates?.KRW);
+  const usdToJpy = parseNumber(data?.rates?.JPY);
 
-  if (!Array.isArray(data)) {
-    return [];
-  }
-
-  return normalizeExchangeRows(data).map((row) => ({ ...row, dateKey }));
-}
-
-export async function fetchExchangeRates(date = new Date()) {
-  for (const dateKey of getRecentDateKeys(date)) {
-    const rows = await fetchExchangeRatesForDate(dateKey);
-
-    if (rows.length > 0) {
-      return {
-        available: true,
-        dateKey,
-        usd: rows.find((row) => row.code === 'USD') ?? null,
-        jpy: rows.find((row) => row.code === 'JPY') ?? null,
-        items: rows
-      };
-    }
+  if (!Number.isFinite(usdToKrw) || !Number.isFinite(usdToJpy) || usdToJpy === 0) {
+    return {
+      available: false,
+      items: []
+    };
   }
 
   return {
-    available: false,
-    items: []
+    available: true,
+    dateKey: data.date ?? null,
+    usd: {
+      code: 'USD',
+      unit: 'USD',
+      name: '미국 달러',
+      value: usdToKrw,
+      source: 'frankfurter'
+    },
+    jpy: {
+      code: 'JPY',
+      unit: 'JPY(100)',
+      name: '일본 엔',
+      value: (usdToKrw / usdToJpy) * 100,
+      source: 'frankfurter'
+    },
+    items: [
+      {
+        code: 'USD',
+        unit: 'USD',
+        name: '미국 달러',
+        value: usdToKrw,
+        source: 'frankfurter'
+      },
+      {
+        code: 'JPY',
+        unit: 'JPY(100)',
+        name: '일본 엔',
+        value: (usdToKrw / usdToJpy) * 100,
+        source: 'frankfurter'
+      }
+    ]
   };
 }
 
@@ -167,6 +159,44 @@ export async function fetchCryptoPrices() {
   };
 }
 
+export async function fetchOilPrice() {
+  const params = new URLSearchParams({
+    range: '1d',
+    interval: '1d',
+    includePrePost: 'false',
+    events: 'div,splits'
+  });
+
+  const response = await fetch(`${OIL_CHART_URL}?${params}`, {
+    headers: {
+      Accept: 'application/json',
+      'User-Agent': 'Mozilla/5.0'
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Yahoo Finance oil API failed: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const meta = data?.chart?.result?.[0]?.meta;
+
+  if (!meta) {
+    return {
+      available: false
+    };
+  }
+
+  return {
+    available: Number.isFinite(meta.regularMarketPrice),
+    symbol: meta.symbol ?? 'CL=F',
+    name: meta.shortName ?? 'Crude Oil',
+    price: parseNumber(meta.regularMarketPrice),
+    changePercent: parseNumber(meta.regularMarketChangePercent),
+    source: 'yahoo-finance'
+  };
+}
+
 function buildExchangeSummary(exchangeRates) {
   if (!exchangeRates?.available) {
     return '';
@@ -198,21 +228,35 @@ function buildCryptoSummary(cryptoPrices) {
     : '';
 }
 
-export function buildMarketCheck({ exchangeRates, cryptoPrices }) {
+function buildOilSummary(oil) {
+  if (!oil?.available || !Number.isFinite(oil.price)) {
+    return '';
+  }
+
+  const priceText = formatOilPrice(oil.price);
+  if (!priceText) {
+    return '';
+  }
+
+  return `국제유가(WTI)는 배럴당 ${priceText} 수준입니다.`;
+}
+
+export function buildMarketCheck({ exchangeRates, cryptoPrices, oil }) {
   const summary = buildExchangeSummary(exchangeRates);
   const cryptoSummary = buildCryptoSummary(cryptoPrices);
-  const available = Boolean(summary || cryptoSummary);
+  const oilSummary = buildOilSummary(oil);
+  const available = Boolean(summary || cryptoSummary || oilSummary);
 
   return {
     available,
-    summary,
+    summary: [summary, oilSummary].filter(Boolean).join('\n'),
     cryptoCheck: {
       available: Boolean(cryptoSummary),
       summary: cryptoSummary
     },
     exchangeRates: exchangeRates ?? { available: false, items: [] },
     cryptoPrices: cryptoPrices ?? { available: false, items: [] },
-    oil: { available: false },
+    oil: oil ?? { available: false },
     usStocks: { available: false },
     domesticStocks: { available: false }
   };
@@ -243,10 +287,11 @@ export async function getMarketCheck({ date = new Date() } = {}) {
     };
   }
 
-  const [exchangeRates, cryptoPrices] = await Promise.all([
+  const [exchangeRates, cryptoPrices, oil] = await Promise.all([
     settleMarketPart('exchange rates', () => fetchExchangeRates(date)),
-    settleMarketPart('crypto prices', () => fetchCryptoPrices())
+    settleMarketPart('crypto prices', () => fetchCryptoPrices()),
+    settleMarketPart('oil price', () => fetchOilPrice())
   ]);
 
-  return buildMarketCheck({ exchangeRates, cryptoPrices });
+  return buildMarketCheck({ exchangeRates, cryptoPrices, oil });
 }

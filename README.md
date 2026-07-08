@@ -71,7 +71,6 @@ XAI_API_KEY=
 XAI_GROK_MODEL=grok-4.3
 
 ENABLE_MARKET_CHECK=false
-EXCHANGE_API_KEY=
 ```
 
 - 날씨와 대기질은 Open-Meteo를 사용하므로 별도 API 키가 필요 없습니다. 기본 위치는 `src/services/weather.js`의 `DEFAULT_LOCATION`에 있는 서울 도봉구입니다.
@@ -85,8 +84,9 @@ EXCHANGE_API_KEY=
 - `GROQ_API_KEY`가 있으면 Gemini 쿼터 초과나 일시 장애 때 GroqCloud Chat Completions API로 한 번 더 시도합니다. `GROK_API_KEY` 값이 `gsk_`로 시작해도 GroqCloud 키로 인식합니다.
 - GroqCloud fallback 기본 모델은 가벼운 `llama-3.1-8b-instant`입니다. 필요하면 `GROQ_MODEL`로 바꿀 수 있습니다.
 - xAI Grok API 키를 쓰고 싶으면 `GROK_API_KEY` 또는 `XAI_API_KEY`에 `xai-` 키를 넣으면 됩니다. 기본 모델은 `grok-4.3`이고, 필요하면 `XAI_GROK_MODEL`로 바꿀 수 있습니다.
-- 시장 체크는 `src/services/market.js`에 분리되어 있습니다. `ENABLE_MARKET_CHECK=true`일 때 원/달러, 원/엔 환율과 비트코인, 이더리움 원화 시세를 뉴스와 별도 섹션으로 표시합니다.
-- 환율은 한국수출입은행 환율정보 API를 사용하므로 `EXCHANGE_API_KEY`가 필요합니다. 키가 없거나 환율 API가 실패하면 환율 항목만 생략합니다.
+- 시장 체크는 `src/services/market.js`에 분리되어 있습니다. `ENABLE_MARKET_CHECK=true`일 때 원/달러, 원/엔 환율과 비트코인, 이더리움 원화 시세, 국제유가(WTI)를 뉴스와 별도 섹션으로 표시합니다.
+- 환율은 키 없는 공개 환율 API를 사용합니다.
+- 유가는 공개 시세 소스를 사용하며, 국내 주유소 평균가가 아니라 국제유가(WTI) 기준으로 표시합니다.
 - 코인 시세는 Upbit Quotation API를 사용하므로 별도 API 키가 필요 없습니다. 유가, 미국 증시, 국내 증시는 확장 포인트만 남겨두었습니다.
 - `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `GEMINI_API_KEY`가 없거나 API 호출이 실패하면 fallback 브리핑을 반환합니다. GroqCloud 또는 xAI 키는 Gemini 실패 시 보조 LLM으로만 사용됩니다.
 
