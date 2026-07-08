@@ -209,10 +209,11 @@ function getFocusedRainPeriods(periods) {
     .map((period) => period.label);
 }
 
-function getSpecialNotes(periods, totalPrecipitation) {
+function getSpecialNotes(periods, totalPrecipitation, dayInfo = {}) {
   const dawn = periods.find((period) => period.key === 'dawn');
   const afternoon = periods.find((period) => period.key === 'afternoon');
   const night = periods.find((period) => period.key === 'night');
+  const isRestDay = Boolean(dayInfo.isRestDay);
   const notes = [];
 
   if (dawn && (
@@ -220,7 +221,9 @@ function getSpecialNotes(periods, totalPrecipitation) {
     (dawn.precipitationSum ?? 0) >= 1 ||
     dawn.hasPrecipitationWeather
   )) {
-    notes.push('새벽에 비가 내린 뒤 아침 도로가 젖어 있을 수 있습니다.');
+    notes.push(isRestDay
+      ? '새벽에 비가 내린 뒤 오전 이동 시 도로가 젖어 있을 수 있습니다.'
+      : '새벽에 비가 내린 뒤 아침 도로가 젖어 있을 수 있습니다.');
   }
 
   if (afternoon && (
@@ -228,7 +231,9 @@ function getSpecialNotes(periods, totalPrecipitation) {
     (afternoon.precipitationSum ?? 0) >= 1 ||
     afternoon.hasStrongPrecipitationWeather
   )) {
-    notes.push('오후 날씨가 퇴근길에 영향을 줄 수 있습니다.');
+    notes.push(isRestDay
+      ? '오후 날씨가 외출이나 이동에 영향을 줄 수 있습니다.'
+      : '오후 날씨가 퇴근길에 영향을 줄 수 있습니다.');
   }
 
   if (night && (
@@ -237,13 +242,15 @@ function getSpecialNotes(periods, totalPrecipitation) {
     night.hasPrecipitationWeather ||
     totalPrecipitation >= 20
   )) {
-    notes.push('저녁에도 비가 이어질 수 있어 늦은 귀가 시 우산을 챙기는 편이 좋겠습니다.');
+    notes.push(isRestDay
+      ? '저녁에도 비가 이어질 수 있어 늦게 이동한다면 우산을 챙기는 편이 좋겠습니다.'
+      : '저녁에도 비가 이어질 수 있어 늦은 귀가 시 우산을 챙기는 편이 좋겠습니다.');
   }
 
   return notes;
 }
 
-function buildWeatherBriefingData(data, dateKey, location = DEFAULT_LOCATION) {
+function buildWeatherBriefingData(data, dateKey, location = DEFAULT_LOCATION, dayInfo = {}) {
   const hourlyRows = getRowsForDate(data.hourly, dateKey);
   const periods = PERIODS.map((period) => analyzePeriod(period, hourlyRows));
   const minTemperature = roundNumber(getDailyValue(data.daily, 'temperature_2m_min'));
@@ -271,7 +278,7 @@ function buildWeatherBriefingData(data, dateKey, location = DEFAULT_LOCATION) {
     totalPrecipitation >= 20 ||
     periods.some((period) => period.hasStrongPrecipitationWeather || (period.precipitationSum ?? 0) >= 5);
   const focusedRainPeriods = getFocusedRainPeriods(periods);
-  const specialNotes = getSpecialNotes(periods, totalPrecipitation);
+  const specialNotes = getSpecialNotes(periods, totalPrecipitation, dayInfo);
 
   return {
     dateKey,
@@ -296,6 +303,12 @@ function buildWeatherBriefingData(data, dateKey, location = DEFAULT_LOCATION) {
     strongRainPossible,
     focusedRainPeriods,
     specialNotes,
+    dayContext: {
+      isWeekend: Boolean(dayInfo.isWeekend),
+      isHoliday: Boolean(dayInfo.isHoliday),
+      isRestDay: Boolean(dayInfo.isRestDay),
+      note: dayInfo.weatherContext ?? ''
+    },
     raw: {
       current: data.current ?? null,
       daily: data.daily ?? null
@@ -368,9 +381,9 @@ async function fetchOpenMeteoForecast(location = DEFAULT_LOCATION) {
   return response.json();
 }
 
-export async function getWeather({ dateKey } = {}) {
+export async function getWeather({ dateKey, dayInfo } = {}) {
   const data = await fetchOpenMeteoForecast(DEFAULT_LOCATION);
-  const weather = buildWeatherBriefingData(data, dateKey, DEFAULT_LOCATION);
+  const weather = buildWeatherBriefingData(data, dateKey, DEFAULT_LOCATION, dayInfo);
 
   try {
     weather.briefingText = await createWeatherBriefingWithGemini(weather);

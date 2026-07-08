@@ -1,6 +1,13 @@
 import { DEFAULT_LOCATION } from './weather.js';
 
 const AIR_QUALITY_API_URL = 'https://air-quality-api.open-meteo.com/v1/air-quality';
+const AIR_QUALITY_TIMEOUT_MS = 8000;
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
 
 function roundNumber(value) {
   return Number.isFinite(value) ? Math.round(value) : null;
@@ -57,18 +64,33 @@ export async function fetchAirQuality(location = DEFAULT_LOCATION) {
     hourly: ['pm10', 'pm2_5', 'us_aqi', 'european_aqi', 'ozone'].join(',')
   });
 
-  try {
-    const response = await fetch(`${AIR_QUALITY_API_URL}?${params}`);
+  const url = `${AIR_QUALITY_API_URL}?${params}`;
 
-    if (!response.ok) {
-      throw new Error(`Open-Meteo Air Quality API failed: ${response.status}`);
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), AIR_QUALITY_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+
+      if (!response.ok) {
+        throw new Error(`Open-Meteo Air Quality API failed: ${response.status}`);
+      }
+
+      return response.json();
+    } catch (error) {
+      if (attempt === 1) {
+        console.error('[airQuality] fetch failed', error);
+        return null;
+      }
+
+      await wait(600);
+    } finally {
+      clearTimeout(timeout);
     }
-
-    return response.json();
-  } catch (error) {
-    console.error('[airQuality] fetch failed', error);
-    return null;
   }
+
+  return null;
 }
 
 export function parseAirQuality(data, location = DEFAULT_LOCATION, now = new Date()) {

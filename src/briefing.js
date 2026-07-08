@@ -22,7 +22,7 @@ export async function createBriefing(date = new Date()) {
 
   const dayInfo = getDayInfo(date);
   const [weatherResult, airQualityResult, marketResult, newsResult, calendarResult] = await Promise.all([
-    settleService('weather', () => getWeather({ dateKey })),
+    settleService('weather', () => getWeather({ dateKey, dayInfo })),
     settleService('airQuality', () => getAirQuality({ dateKey })),
     settleService('market', () => getMarketCheck({ dateKey })),
     settleService('news', () => getTopNews({ dateKey })),

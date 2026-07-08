@@ -112,6 +112,9 @@ function formatInfos(infos) {
 export function getDayInfo(date = new Date()) {
   const todayInfos = getInfosForDate(date);
   const weekdayIndex = getWeekdayIndex(date);
+  const isWeekend = weekdayIndex === 0 || weekdayIndex === 6;
+  const isHoliday = todayInfos.some((info) => info.type === '공휴일' || info.type === '대체공휴일');
+  const isRestDay = isWeekend || isHoliday;
   const weekInfos = [];
 
   if (weekdayIndex === 1) {
@@ -129,6 +132,12 @@ export function getDayInfo(date = new Date()) {
 
   return {
     todayInfos,
+    isWeekend,
+    isHoliday,
+    isRestDay,
+    weatherContext: isRestDay
+      ? '주말 또는 휴일이므로 출근길/퇴근길 표현 대신 외출, 이동, 늦은 귀가 관점으로 안내한다.'
+      : '평일이므로 출근길/퇴근길 관점의 안내가 유용하다.',
     todayText: todayInfos.length > 0 ? `오늘은 ${formatInfos(todayInfos)}입니다.` : '',
     weekInfos,
     weekText: weekInfos.length > 0

@@ -48,6 +48,21 @@ const CRYPTO_ALLOW_KEYWORDS = [
   '비트코인', '이더리움', '현물 ETF', '금리', '달러', '규제',
   '대형 거래소', '해킹', '기관', '반감기', '스테이블코인'
 ];
+const MARKET_CHECK_ONLY_KEYWORDS = [
+  '코스피', '코스닥', '나스닥', '다우', 'S&P', '환율', '원달러',
+  '원/달러', '원엔', '원/엔', '유가', '국제유가', 'WTI',
+  '브렌트유', '비트코인', '이더리움'
+];
+const MARKET_MOVE_KEYWORDS = [
+  '급등', '급락', '상승', '하락', '강세', '약세', '마감', '출발',
+  '돌파', '후퇴', '반등', '조정', '흔들', '변동성'
+];
+const MARKET_NEWS_ALLOW_KEYWORDS = [
+  '정책', '규제', '관세', '금리', '연준', 'FOMC', '실적',
+  '인수', '합병', '투자', '공급망', '파업', '해킹', 'ETF',
+  '경상수지', '수출', '수입', '무역수지', '물가', '고용',
+  '반도체', 'AI', '삼성전자', 'SK하이닉스'
+];
 
 function getMockNews(dateKey) {
   return [
@@ -123,8 +138,12 @@ function isExcludedNews(item) {
   const isSports = hasAnyKeyword(text, SPORTS_KEYWORDS);
   const isAllowedSports = hasAnyKeyword(text, SPORTS_ALLOW_KEYWORDS);
   const isLowQualityCrypto = hasAnyKeyword(text, CRYPTO_EXCLUDE_KEYWORDS);
+  const isMarketCheckOnly =
+    hasAnyKeyword(text, MARKET_CHECK_ONLY_KEYWORDS) &&
+    hasAnyKeyword(text, MARKET_MOVE_KEYWORDS) &&
+    !hasAnyKeyword(text, MARKET_NEWS_ALLOW_KEYWORDS);
 
-  return hasExcludedKeyword || isLowQualityCrypto || (isSports && !isAllowedSports);
+  return hasExcludedKeyword || isLowQualityCrypto || isMarketCheckOnly || (isSports && !isAllowedSports);
 }
 
 function scoreNews(item) {
