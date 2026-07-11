@@ -9,6 +9,7 @@ const NEWS_QUERIES = [
   { query: '미국 이란 이스라엘 중동 공습', category: '국제/안보', display: '10' },
   { query: '중동 호르무즈 이란 미국 국제유가', category: '국제/안보', display: '8' },
   { query: 'AI 빅테크 엔비디아 오픈AI', category: 'IT/산업', display: '8' },
+  { query: '개인정보 사이버보안 플랫폼 통신 기술', category: 'IT/산업', display: '8' },
   { query: '과학 의료 보건 환경 기술 연구', category: '과학/보건', display: '8' },
   { query: '전국 재난 안전 제도 변화 사회', category: '사회', display: '8' },
   { query: '비트코인 ETF 규제 기관 투자', category: '경제/금융', display: '5' }

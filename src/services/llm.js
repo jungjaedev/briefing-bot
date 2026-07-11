@@ -413,8 +413,18 @@ function isOtherNews(item) {
   const domain = getNewsDomain(item);
   const text = `${item.title ?? ''} ${item.briefTitle ?? ''} ${item.summary ?? ''}`;
   const hasEconomicFocus = /삼성전자|SK하이닉스|현대차|테슬라|엔비디아|기업|상장|증시|주가|투자|실적|매출|수출|관세|금리|환율|유가|비트코인|이더리움|ETF|인수|합병|공급망|생산|공장|파운드리|메모리 세일즈/.test(text);
+  const isInstitutionalStory = /연구원 설립|센터 설립|기관 설립|협약|간담회|포럼|세미나/.test(text);
+  const hasBroadScienceImpact = /전국|국민|감염|질병|유행|백신|신약|치료|의료대란|기후|재난|안전|발견|승인|환경오염/.test(text);
 
-  return ['technology', 'science', 'society'].includes(domain) && !hasEconomicFocus;
+  if (hasEconomicFocus || isInstitutionalStory) {
+    return false;
+  }
+
+  if (domain === 'science') {
+    return hasBroadScienceImpact;
+  }
+
+  return ['technology', 'society'].includes(domain);
 }
 
 function selectDiverseNews(items, limit = 3) {
