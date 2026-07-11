@@ -12,22 +12,19 @@ const NEWS_QUERIES = [
   { query: '개인정보 사이버보안 플랫폼 통신 기술', category: 'IT/산업', display: '8' },
   { query: '과학 의료 보건 환경 기술 연구', category: '과학/보건', display: '8' },
   { query: '전국 재난 안전 제도 변화 사회', category: '사회', display: '8' },
+  { query: '오늘 화제 주요 뉴스 사회 정치 문화 스포츠 연예', category: '대중/화제', display: '10' },
+  { query: '스포츠 주요 경기 우승 국가대표', category: '스포츠', display: '8' },
+  { query: '영화 방송 문화 콘텐츠 화제', category: '문화/연예', display: '8' },
   { query: '비트코인 ETF 규제 기관 투자', category: '경제/금융', display: '5' }
 ];
 
 const EXCLUDE_KEYWORDS = [
-  '국회', '국회의원', '민주당', '국민의힘', '조국혁신당',
-  '선거', '공천', '탄핵', '특검', '청문회', '정당',
   '[포토]', '포토', '영상', '오늘의 사진', '말말말',
   '교육청', '시교육청', '도교육청', '구청', '시청', '도청',
   '군청', '도의회', '시의회', '지자체', '업무협약', '협약 체결',
   '상반기 재정', '신속 집행', '지원 총력', '성장펀드',
   '구축사업 선정', '정식 가동', '성과급', '간담회',
   '열애', '결혼', '이혼'
-];
-
-const DOMESTIC_GOVERNMENT_KEYWORDS = [
-  '대통령', '국무회의', '총리', '부총리', '장관', '차관'
 ];
 
 const LOW_PRIORITY_KEYWORDS = [
@@ -49,8 +46,6 @@ const HIGH_PRIORITY_KEYWORDS = [
   '공습', '미사일', '핵시설', '호르무즈', '제재', '군사', '안보'
 ];
 
-const SPORTS_KEYWORDS = ['축구', '야구', '농구', '배구', '골프', 'K리그', 'MLB', 'NBA'];
-const SPORTS_ALLOW_KEYWORDS = ['월드컵', '올림픽', '국가대표', '결승', '우승', '아시안게임'];
 const NATIONAL_IMPACT_KEYWORDS = ['전국', '재난', '안전', '대형 사고', '제도 변화', '개편', '파업'];
 const CRYPTO_EXCLUDE_KEYWORDS = ['밈코인', '알트코인', '에어드랍', '거래소 이벤트', '상장 이벤트'];
 const CRYPTO_ALLOW_KEYWORDS = [
@@ -155,10 +150,6 @@ function hasAnyKeyword(text, keywords) {
 function isExcludedNews(item) {
   const text = getNewsText(item);
   const hasExcludedKeyword = hasAnyKeyword(text, EXCLUDE_KEYWORDS);
-  const hasDomesticGovernmentKeyword = hasAnyKeyword(text, DOMESTIC_GOVERNMENT_KEYWORDS);
-  const isInternationalSecurity = hasAnyKeyword(text, INTERNATIONAL_SECURITY_KEYWORDS);
-  const isSports = hasAnyKeyword(text, SPORTS_KEYWORDS);
-  const isAllowedSports = hasAnyKeyword(text, SPORTS_ALLOW_KEYWORDS);
   const isLowQualityCrypto = hasAnyKeyword(text, CRYPTO_EXCLUDE_KEYWORDS);
   const isMarketCheckOnly =
     hasAnyKeyword(text, MARKET_CHECK_ONLY_KEYWORDS) &&
@@ -166,10 +157,8 @@ function isExcludedNews(item) {
     !hasAnyKeyword(text, MARKET_NEWS_ALLOW_KEYWORDS);
 
   return hasExcludedKeyword ||
-    (hasDomesticGovernmentKeyword && !isInternationalSecurity) ||
     isLowQualityCrypto ||
-    isMarketCheckOnly ||
-    (isSports && !isAllowedSports);
+    isMarketCheckOnly;
 }
 
 function scoreNews(item) {
@@ -205,6 +194,10 @@ function scoreNews(item) {
   }
 
   if (item.category === '과학/보건') {
+    score += 7;
+  }
+
+  if (['대중/화제', '스포츠', '문화/연예'].includes(item.category)) {
     score += 7;
   }
 
