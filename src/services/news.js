@@ -73,6 +73,14 @@ const INTERNATIONAL_SECURITY_KEYWORDS = [
   '미사일', '핵시설', '핵협상', '제재', '군사', '전쟁',
   '분쟁', '안보', '나토', '우크라이나', '러시아', '드론'
 ];
+const NEWS_FETCH_MAX_ATTEMPTS = 3;
+const NEWS_FETCH_RETRY_STATUSES = new Set([429, 500, 502, 503, 504]);
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
 
 function getMockNews(dateKey) {
   return [
@@ -282,16 +290,27 @@ async function fetchNaverNews({ query, category, display }, dateKey) {
     sort: 'date'
   });
 
-  const response = await fetch(`https://openapi.naver.com/v1/search/news.json?${params}`, {
+  const request = {
     headers: {
       'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
       'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET
     }
-  });
+  };
+  let response;
 
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Naver News API failed: ${response.status} ${body}`);
+  for (let attempt = 1; attempt <= NEWS_FETCH_MAX_ATTEMPTS; attempt += 1) {
+    response = await fetch(`https://openapi.naver.com/v1/search/news.json?${params}`, request);
+    if (response.ok) {
+      break;
+    }
+
+    if (!NEWS_FETCH_RETRY_STATUSES.has(response.status) || attempt === NEWS_FETCH_MAX_ATTEMPTS) {
+      const body = await response.text();
+      throw new Error(`Naver News API failed: ${response.status} ${body}`);
+    }
+
+    await response.text();
+    await wait(750 * attempt);
   }
 
   const data = await response.json();
@@ -311,9 +330,11 @@ export async function getTopNews({ dateKey } = {}) {
     return getMockNews(dateKey);
   }
 
-  const nestedCandidates = await Promise.all(
-    NEWS_QUERIES.map((queryConfig) => fetchNaverNews(queryConfig, dateKey))
-  );
+  const nestedCandidates = [];
+  for (const queryConfig of NEWS_QUERIES) {
+    nestedCandidates.push(await fetchNaverNews(queryConfig, dateKey));
+    await wait(200);
+  }
 
   const candidates = dedupeNews(nestedCandidates.flat())
     .sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
