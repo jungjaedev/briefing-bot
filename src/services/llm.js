@@ -389,27 +389,53 @@ function getNewsDomain(item) {
   return 'economy';
 }
 
+function getNewsEntityKey(item) {
+  const text = `${item.title ?? ''} ${item.briefTitle ?? ''} ${item.summary ?? ''}`;
+  const entities = [
+    ['sk_hynix', /SK하이닉스/i],
+    ['samsung_electronics', /삼성전자/i],
+    ['nvidia', /엔비디아|NVIDIA/i],
+    ['bitcoin', /비트코인/i],
+    ['openai', /오픈AI|OpenAI/i]
+  ];
+
+  return entities.find(([, pattern]) => pattern.test(text))?.[0] ?? '';
+}
+
 function selectDiverseNews(items, limit = 3) {
   const selected = [];
   const usedDomains = new Set();
+  const usedEntityKeys = new Set();
 
   for (const item of items) {
     const domain = getNewsDomain(item);
-    if (usedDomains.has(domain)) {
+    const entityKey = getNewsEntityKey(item);
+    if (usedDomains.has(domain) || (entityKey && usedEntityKeys.has(entityKey))) {
       continue;
     }
     selected.push(item);
     usedDomains.add(domain);
+    if (entityKey) {
+      usedEntityKeys.add(entityKey);
+    }
     if (selected.length === limit) {
       return selected;
     }
   }
 
   for (const item of items) {
-    if (selected.includes(item) || getNewsDomain(item) === 'security') {
+    const entityKey = getNewsEntityKey(item);
+    if (
+      selected.includes(item) ||
+      getNewsDomain(item) === 'security' ||
+      (entityKey && usedEntityKeys.has(entityKey))
+    ) {
       continue;
     }
     selected.push(item);
+    if (entityKey) {
+      usedEntityKeys.add(entityKey);
+    }
     if (selected.length === limit) {
       break;
     }
