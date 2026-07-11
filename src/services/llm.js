@@ -27,12 +27,12 @@ function buildNewsPrompt(candidates) {
 - 후보에 없는 뉴스를 만들지 않는다.
 - 같은 이슈는 하나로 합친다.
 - 국내 정치/정당/국회/선거/국무회의 중심 뉴스는 선택하지 않는다.
-- 미국, 이란, 이스라엘, 중동, 우크라이나, 나토 등 국제 안보/전쟁/공습/제재 이슈는 정부나 정상 발언이 포함되어도 주요 국제 뉴스로 선택할 수 있다.
+- 국제 안보/전쟁/공습/제재 기사는 전체에서 최대 1개만 선택한다. 같은 전쟁의 후속 발언, 공습, 유가 반응을 각각 별도 뉴스로 고르지 않는다.
 - 지역 기관 홍보성 뉴스, 교육청/시청/구청/협약/행사 뉴스는 선택하지 않는다.
 - 포토뉴스, 영상뉴스, 단순 발언 기사, 찬반 여론 기사, 일반 스포츠, 연예 뉴스는 선택하지 않는다.
 - 기본 슬롯은 경제/금융/산업 1개, 국제/글로벌 경제 1개, IT/산업 또는 전국적 영향이 큰 사회 이슈 1개다.
-- 특정 날에 경제 또는 국제 이슈가 매우 크면 같은 분야를 2개까지 선택해도 된다.
-- 미국의 이란 공습, 중동 확전, 호르무즈 해협, 핵시설, 제재처럼 국제 안보와 글로벌 시장에 함께 영향을 줄 수 있는 이슈는 최우선 후보로 본다.
+- 선정 결과에는 가능하면 서로 다른 분야가 3개 포함되어야 한다. 최소 2개 이상의 서로 다른 분야를 선택한다.
+- 특정 날에 경제 이슈가 매우 크면 경제 분야를 2개까지 선택해도 되지만, 국제 안보/전쟁 분야는 중요도와 관계없이 1개를 넘기지 않는다.
 - 사회 뉴스는 전국적 영향이 큰 사건, 제도 변화, 재난, 안전 이슈일 때만 선택한다.
 - 비트코인 현물 ETF, 금리, 달러, 규제, 대형 거래소, 해킹, 기관 매수/매도, 반감기, 스테이블코인 규제처럼 시장 전체에 영향이 큰 가상화폐 이슈는 경제/금융 이슈로 선택할 수 있다.
 - 단순 급등락, 특정 알트코인 홍보성 기사, 밈코인, 거래소 이벤트성 기사는 선택하지 않는다.
@@ -49,6 +49,7 @@ function buildNewsPrompt(candidates) {
 - original title은 최종 브리핑에 그대로 노출하지 않는다.
 - briefTitle은 15~35자 정도의 자연스러운 한국어 문장 또는 명사형 제목으로 만든다.
 - summary는 40자에서 80자 사이의 담백한 한 문장으로 쓴다.
+- summary는 주어와 서술어가 갖춰진 완결된 문장으로 쓰고, 잘린 원문 조각을 이어 붙이지 않는다.
 - topicKey는 같은 이슈를 식별할 수 있는 짧은 영어 키로 쓴다.
 - 응답은 JSON만 반환한다.
 
@@ -140,7 +141,7 @@ function getLeadSentence(value = '') {
 }
 
 function getFallbackNewsSummary(original) {
-  return getLeadSentence(original.description || original.title || '');
+  return getLeadSentence(original.title || original.description || '');
 }
 
 function isMarketMovementSummary(item) {
@@ -184,11 +185,13 @@ function normalizeSelectedNewsItem(selected, original) {
 function compactTitle(value = '') {
   const text = sanitizeNewsDisplayText(value);
 
-  if (text.length <= 35) {
+  if (text.length <= 70) {
     return text;
   }
 
-  return text.slice(0, 35).trim();
+  const shortened = text.slice(0, 70);
+  const lastSpace = shortened.lastIndexOf(' ');
+  return `${shortened.slice(0, lastSpace > 45 ? lastSpace : 70).trim()}…`;
 }
 
 async function generateGeminiJson(prompt, { maxOutputTokens = 700, temperature = 0.1 } = {}) {
@@ -346,12 +349,73 @@ async function generateLlmJson(prompt, { allowFallback = true, ...options } = {}
 
     console.error('[llm] Gemini failed, trying fallback LLM', geminiError);
 
+    let fallbackError = geminiError;
+
     if (getGroqApiKey()) {
-      return generateGroqJson(prompt, options);
+      try {
+        return await generateGroqJson(prompt, options);
+      } catch (groqError) {
+        fallbackError = groqError;
+        console.error('[llm] Groq failed, trying next fallback LLM', groqError);
+      }
     }
 
-    return generateXaiGrokJson(prompt, options);
+    if (getXaiApiKey()) {
+      return generateXaiGrokJson(prompt, options);
+    }
+
+    throw fallbackError;
   }
+}
+
+function getNewsDomain(item) {
+  const text = `${item.category ?? ''} ${item.title ?? ''} ${item.briefTitle ?? ''} ${item.summary ?? ''}`;
+
+  if (/국제\/안보|전쟁|공습|미사일|군사|이스라엘|이란|우크라이나|러시아|호르무즈/.test(text)) {
+    return 'security';
+  }
+  if (/IT\/산업|AI|인공지능|빅테크|소프트웨어|반도체/.test(text)) {
+    return 'technology';
+  }
+  if (/과학\/보건|과학|의료|보건|환경|연구/.test(text)) {
+    return 'science';
+  }
+  if (/사회|재난|안전|제도/.test(text)) {
+    return 'society';
+  }
+  if (/국제\/경제/.test(text)) {
+    return 'global_economy';
+  }
+  return 'economy';
+}
+
+function selectDiverseNews(items, limit = 3) {
+  const selected = [];
+  const usedDomains = new Set();
+
+  for (const item of items) {
+    const domain = getNewsDomain(item);
+    if (usedDomains.has(domain)) {
+      continue;
+    }
+    selected.push(item);
+    usedDomains.add(domain);
+    if (selected.length === limit) {
+      return selected;
+    }
+  }
+
+  for (const item of items) {
+    if (selected.includes(item) || getNewsDomain(item) === 'security') {
+      continue;
+    }
+    selected.push(item);
+    if (selected.length === limit) {
+      break;
+    }
+  }
+
+  return selected;
 }
 
 export async function createWeatherBriefingWithGemini(weather) {
@@ -434,7 +498,8 @@ export async function selectTopNewsWithGemini(candidates = []) {
     }))
     .filter((item) => !isMarketMovementSummary(item));
 
-  return [...normalizedSelected, ...fallbackPadding]
-    .filter((item, index, array) => index === array.findIndex((other) => other.title === item.title))
-    .slice(0, 3);
+  const uniqueItems = [...normalizedSelected, ...fallbackPadding]
+    .filter((item, index, array) => index === array.findIndex((other) => other.title === item.title));
+
+  return selectDiverseNews(uniqueItems);
 }

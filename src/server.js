@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import crypto from 'node:crypto';
 import dns from 'node:dns';
 import express from 'express';
 import { getBriefingCacheStatus, getCachedBriefing } from './services/briefingCache.js';
@@ -11,6 +12,36 @@ const host = process.env.HOST ?? '127.0.0.1';
 
 app.disable('x-powered-by');
 
+function tokensMatch(actual, expected) {
+  const actualBuffer = Buffer.from(actual);
+  const expectedBuffer = Buffer.from(expected);
+
+  return actualBuffer.length === expectedBuffer.length
+    && crypto.timingSafeEqual(actualBuffer, expectedBuffer);
+}
+
+function requireBriefingToken(req, res, next) {
+  const expectedToken = process.env.BRIEFING_ACCESS_TOKEN;
+  const authorization = req.get('authorization') ?? '';
+  const match = authorization.match(/^Bearer ([^\s]+)$/i);
+
+  if (!expectedToken) {
+    res.status(503).type('text/plain; charset=utf-8').send('Briefing access is not configured.');
+    return;
+  }
+
+  if (!match || !tokensMatch(match[1], expectedToken)) {
+    res
+      .status(401)
+      .set('WWW-Authenticate', 'Bearer')
+      .type('text/plain; charset=utf-8')
+      .send('Unauthorized');
+    return;
+  }
+
+  next();
+}
+
 app.get('/', (req, res) => {
   res.type('text/plain').send('Morning briefing bot is running.');
 });
@@ -18,6 +49,8 @@ app.get('/', (req, res) => {
 app.get('/health', (req, res) => {
   res.json({ ok: true });
 });
+
+app.use('/briefing', requireBriefingToken);
 
 app.get('/briefing/status', async (req, res, next) => {
   try {
@@ -32,13 +65,6 @@ app.get('/briefing/status', async (req, res, next) => {
 
 app.get('/briefing/refresh', async (req, res, next) => {
   try {
-    const refreshToken = process.env.BRIEFING_REFRESH_TOKEN;
-
-    if (!refreshToken || req.query.token !== refreshToken) {
-      res.status(403).type('text/plain; charset=utf-8').send('Forbidden');
-      return;
-    }
-
     const briefing = await getCachedBriefing({ forceRefresh: true });
     res
       .set('Cache-Control', 'no-store')
@@ -51,8 +77,7 @@ app.get('/briefing/refresh', async (req, res, next) => {
 
 app.get('/briefing', async (req, res, next) => {
   try {
-    const refreshToken = process.env.BRIEFING_REFRESH_TOKEN;
-    const forceRefresh = req.query.refresh === 'true' && refreshToken && req.query.token === refreshToken;
+    const forceRefresh = req.query.refresh === 'true';
     const briefing = await getCachedBriefing({ forceRefresh });
     res
       .set('Cache-Control', 'no-store')

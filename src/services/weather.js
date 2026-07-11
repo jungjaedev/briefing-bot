@@ -49,6 +49,14 @@ const PRECIPITATION_WEATHER_CODES = new Set([
 ]);
 
 const STRONG_PRECIPITATION_WEATHER_CODES = new Set([55, 57, 65, 67, 75, 82, 86, 95, 96, 99]);
+const WEATHER_FETCH_MAX_ATTEMPTS = 3;
+const WEATHER_FETCH_RETRY_STATUSES = new Set([429, 500, 502, 503, 504]);
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
 
 function roundNumber(value, digits = 0) {
   if (!Number.isFinite(value)) {
@@ -372,13 +380,35 @@ async function fetchOpenMeteoForecast(location = DEFAULT_LOCATION) {
     ].join(',')
   });
 
-  const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
+  const url = `https://api.open-meteo.com/v1/forecast?${params}`;
+  let lastError;
 
-  if (!response.ok) {
-    throw new Error(`Open-Meteo API failed: ${response.status}`);
+  for (let attempt = 1; attempt <= WEATHER_FETCH_MAX_ATTEMPTS; attempt += 1) {
+    let response;
+
+    try {
+      response = await fetch(url);
+    } catch (error) {
+      lastError = error;
+    }
+
+    if (response?.ok) {
+      return response.json();
+    }
+
+    if (response) {
+      lastError = new Error(`Open-Meteo API failed: ${response.status}`);
+      if (!WEATHER_FETCH_RETRY_STATUSES.has(response.status)) {
+        throw lastError;
+      }
+    }
+
+    if (attempt < WEATHER_FETCH_MAX_ATTEMPTS) {
+      await wait(1500 * attempt);
+    }
   }
 
-  return response.json();
+  throw lastError;
 }
 
 export async function getWeather({ dateKey, dayInfo } = {}) {

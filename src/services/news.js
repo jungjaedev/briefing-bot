@@ -9,6 +9,8 @@ const NEWS_QUERIES = [
   { query: '미국 이란 이스라엘 중동 공습', category: '국제/안보', display: '10' },
   { query: '중동 호르무즈 이란 미국 국제유가', category: '국제/안보', display: '8' },
   { query: 'AI 빅테크 엔비디아 오픈AI', category: 'IT/산업', display: '8' },
+  { query: '과학 의료 보건 환경 기술 연구', category: '과학/보건', display: '8' },
+  { query: '전국 재난 안전 제도 변화 사회', category: '사회', display: '8' },
   { query: '비트코인 ETF 규제 기관 투자', category: '경제/금융', display: '5' }
 ];
 
@@ -201,6 +203,10 @@ function scoreNews(item) {
     score += 4;
   }
 
+  if (item.category === '과학/보건') {
+    score += 7;
+  }
+
   if (hasAnyKeyword(text, INTERNATIONAL_SECURITY_KEYWORDS)) {
     score += 5;
   }
@@ -210,14 +216,14 @@ function scoreNews(item) {
   }
 
   if (item.category === '사회' && hasAnyKeyword(text, NATIONAL_IMPACT_KEYWORDS)) {
-    score += 2;
+    score += 7;
   }
 
   return score;
 }
 
 function prepareNewsCandidates(candidates) {
-  return candidates
+  const scoredCandidates = candidates
     .filter((item) => !isExcludedNews(item))
     .map((item) => ({ ...item, score: scoreNews(item) }))
     .filter((item) => item.score >= 6)
@@ -227,8 +233,29 @@ function prepareNewsCandidates(candidates) {
       }
 
       return new Date(b.pubDate) - new Date(a.pubDate);
-    })
-    .slice(0, 20);
+    });
+
+  const categoryQueues = new Map();
+  for (const candidate of scoredCandidates) {
+    const queue = categoryQueues.get(candidate.category) ?? [];
+    queue.push(candidate);
+    categoryQueues.set(candidate.category, queue);
+  }
+
+  const balanced = [];
+  while (balanced.length < 20 && [...categoryQueues.values()].some((queue) => queue.length > 0)) {
+    for (const queue of categoryQueues.values()) {
+      const candidate = queue.shift();
+      if (candidate) {
+        balanced.push(candidate);
+      }
+      if (balanced.length === 20) {
+        break;
+      }
+    }
+  }
+
+  return balanced;
 }
 
 function dedupeNews(items) {
