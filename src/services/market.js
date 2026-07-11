@@ -3,6 +3,45 @@ const UPBIT_TICKER_URL = 'https://api.upbit.com/v1/ticker';
 const OIL_CHART_URL = 'https://query1.finance.yahoo.com/v8/finance/chart/CL=F';
 
 const CRYPTO_MARKETS = ['KRW-BTC', 'KRW-ETH'];
+const MARKET_FETCH_MAX_ATTEMPTS = 3;
+const MARKET_FETCH_RETRY_STATUSES = new Set([429, 500, 502, 503, 504]);
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function fetchWithRetry(url, options = {}) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= MARKET_FETCH_MAX_ATTEMPTS; attempt += 1) {
+    let response;
+    try {
+      response = await fetch(url, options);
+    } catch (error) {
+      lastError = error;
+    }
+
+    if (response?.ok) {
+      return response;
+    }
+
+    if (response) {
+      lastError = new Error(`HTTP request failed: ${response.status}`);
+      if (!MARKET_FETCH_RETRY_STATUSES.has(response.status)) {
+        return response;
+      }
+      await response.text();
+    }
+
+    if (attempt < MARKET_FETCH_MAX_ATTEMPTS) {
+      await wait(750 * attempt);
+    }
+  }
+
+  throw lastError;
+}
 
 function isMarketCheckEnabled() {
   return process.env.ENABLE_MARKET_CHECK === 'true';
@@ -61,7 +100,7 @@ async function fetchExchangeRates() {
     to: 'KRW,JPY'
   });
 
-  const response = await fetch(`${FX_API_URL}?${params}`, {
+  const response = await fetchWithRetry(`${FX_API_URL}?${params}`, {
     headers: {
       Accept: 'application/json'
     }
@@ -123,7 +162,7 @@ export async function fetchCryptoPrices() {
     markets: CRYPTO_MARKETS.join(',')
   });
 
-  const response = await fetch(`${UPBIT_TICKER_URL}?${params}`, {
+  const response = await fetchWithRetry(`${UPBIT_TICKER_URL}?${params}`, {
     headers: {
       Accept: 'application/json'
     }
@@ -167,7 +206,7 @@ export async function fetchOilPrice() {
     events: 'div,splits'
   });
 
-  const response = await fetch(`${OIL_CHART_URL}?${params}`, {
+  const response = await fetchWithRetry(`${OIL_CHART_URL}?${params}`, {
     headers: {
       Accept: 'application/json',
       'User-Agent': 'Mozilla/5.0'
