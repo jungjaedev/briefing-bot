@@ -409,13 +409,21 @@ function getNewsEntityKey(item) {
   return entities.find(([, pattern]) => pattern.test(text))?.[0] ?? '';
 }
 
+function isOtherNews(item) {
+  const domain = getNewsDomain(item);
+  const text = `${item.title ?? ''} ${item.briefTitle ?? ''} ${item.summary ?? ''}`;
+  const hasEconomicFocus = /삼성전자|SK하이닉스|현대차|테슬라|엔비디아|기업|상장|증시|주가|투자|실적|매출|수출|관세|금리|환율|유가|비트코인|이더리움|ETF|인수|합병|공급망|생산|공장|파운드리|메모리 세일즈/.test(text);
+
+  return ['technology', 'science', 'society'].includes(domain) && !hasEconomicFocus;
+}
+
 function selectDiverseNews(items, limit = 3) {
   const selected = [];
   const usedEntityKeys = new Set();
   const slots = [
     (item) => getNewsDomain(item) === 'economy',
     (item) => ['global_economy', 'security'].includes(getNewsDomain(item)),
-    (item) => ['technology', 'science', 'society'].includes(getNewsDomain(item))
+    (item) => isOtherNews(item)
   ];
 
   for (const matchesSlot of slots) {
