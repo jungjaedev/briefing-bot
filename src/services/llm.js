@@ -417,6 +417,24 @@ function getNewsEntityKey(item) {
   return entities.find(([, pattern]) => pattern.test(text))?.[0] ?? '';
 }
 
+function hasIncompleteNewsText(item) {
+  const text = String(item.summary || item.briefTitle || item.title || '').trim();
+  const lastToken = text.split(/\s+/).at(-1) ?? '';
+  const pairs = [
+    ['[', ']'],
+    ['(', ')'],
+    ['“', '”'],
+    ["'", "'"]
+  ];
+  const hasUnclosedPair = pairs.some(([open, close]) => {
+    const openCount = text.split(open).length - 1;
+    const closeCount = text.split(close).length - 1;
+    return open === close ? openCount % 2 === 1 : openCount > closeCount;
+  });
+
+  return hasUnclosedPair || (text.length > 30 && /^[가-힣]$/.test(lastToken));
+}
+
 function isOtherNews(item) {
   const domain = getNewsDomain(item);
   const text = `${item.title ?? ''} ${item.briefTitle ?? ''} ${item.summary ?? ''}`;
@@ -545,7 +563,8 @@ export async function selectTopNewsWithGemini(candidates = []) {
     .filter((item) => !isMarketMovementSummary(item));
 
   const uniqueItems = [...normalizedSelected, ...fallbackPadding]
-    .filter((item, index, array) => index === array.findIndex((other) => other.title === item.title));
+    .filter((item, index, array) => index === array.findIndex((other) => other.title === item.title))
+    .filter((item) => !hasIncompleteNewsText(item));
 
   return selectDiverseNews(uniqueItems);
 }
