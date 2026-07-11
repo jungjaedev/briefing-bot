@@ -119,13 +119,7 @@ function isSameKoreanDate(pubDate, dateKey) {
 }
 
 function compactSummary(value = '') {
-  const normalized = value.replace(/\s+/g, ' ').trim();
-
-  if (normalized.length <= 90) {
-    return normalized;
-  }
-
-  return `${normalized.slice(0, 87)}...`;
+  return value.replace(/\s+/g, ' ').trim();
 }
 
 function fallbackTopNews(candidates) {
