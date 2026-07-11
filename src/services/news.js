@@ -155,6 +155,24 @@ function hasAnyKeyword(text, keywords) {
   return keywords.some((keyword) => includesKeyword(text, keyword));
 }
 
+function isLikelyTruncatedTitle(value = '') {
+  const text = value.trim();
+  const lastToken = text.split(/\s+/).at(-1) ?? '';
+  const pairs = [
+    ['[', ']'],
+    ['(', ')'],
+    ['“', '”'],
+    ["'", "'"]
+  ];
+  const hasUnclosedPair = pairs.some(([open, close]) => {
+    const openCount = text.split(open).length - 1;
+    const closeCount = text.split(close).length - 1;
+    return open === close ? openCount % 2 === 1 : openCount > closeCount;
+  });
+
+  return hasUnclosedPair || (text.length > 30 && /^[가-힣]$/.test(lastToken));
+}
+
 function isExcludedNews(item) {
   const text = getNewsText(item);
   const hasExcludedKeyword = hasAnyKeyword(text, EXCLUDE_KEYWORDS);
@@ -164,7 +182,8 @@ function isExcludedNews(item) {
     hasAnyKeyword(text, MARKET_MOVE_KEYWORDS) &&
     !hasAnyKeyword(text, MARKET_NEWS_ALLOW_KEYWORDS);
 
-  return hasExcludedKeyword ||
+  return isLikelyTruncatedTitle(item.title) ||
+    hasExcludedKeyword ||
     isLowQualityCrypto ||
     isMarketCheckOnly;
 }

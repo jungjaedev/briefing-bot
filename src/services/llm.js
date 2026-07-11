@@ -11,10 +11,10 @@ function wait(ms) {
 }
 
 function buildNewsPrompt(candidates) {
-  const compactCandidates = candidates.slice(0, 12).map((item, index) => ({
+  const compactCandidates = candidates.slice(0, 8).map((item, index) => ({
     id: index + 1,
-    title: String(item.title ?? '').slice(0, 90),
-    description: String(item.description ?? '').slice(0, 180),
+    title: String(item.title ?? '').slice(0, 80),
+    description: String(item.description ?? '').slice(0, 120),
     category: item.category,
     pubDate: item.pubDate,
     score: item.score
@@ -230,7 +230,7 @@ async function generateGeminiJson(prompt, { maxOutputTokens = 700, temperature =
   let response = await fetch(`${GEMINI_API_URL}/${model}:generateContent`, request);
 
   if (response.status === 429 || response.status === 503) {
-    await wait(1200);
+    await wait(response.status === 429 ? 30000 : 1500);
     response = await fetch(`${GEMINI_API_URL}/${model}:generateContent`, request);
   }
 
@@ -281,7 +281,11 @@ async function fetchChatCompletionJson(
   let response = await fetch(url, request);
 
   if (response.status === 429 || response.status === 503) {
-    await wait(1200);
+    const retryAfterSeconds = Number.parseFloat(response.headers.get('retry-after') ?? '');
+    const retryDelay = Number.isFinite(retryAfterSeconds)
+      ? Math.max(1500, retryAfterSeconds * 1000)
+      : response.status === 429 ? 25000 : 1500;
+    await wait(retryDelay);
     response = await fetch(url, request);
   }
 
@@ -482,7 +486,7 @@ export async function selectTopNewsWithGemini(candidates = []) {
   }
 
   const parsed = await generateLlmJson(buildNewsPrompt(candidates), {
-    maxOutputTokens: 500,
+    maxOutputTokens: 350,
     temperature: 0.1
   });
 
