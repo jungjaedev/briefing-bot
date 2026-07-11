@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "briefing:daily": "node scripts/daily-briefing.mjs"
+    "briefing:daily": "node scripts/daily-briefing.mjs",
+    "telegram:bot": "node scripts/telegram-bot.mjs"
   },
   "engines": {
     "node": ">=20"

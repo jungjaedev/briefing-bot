@@ -187,6 +187,7 @@ npm install -g pm2
 
 ```bash
 pm2 start npm --name morning-briefing -- start
+pm2 start npm --name briefing-telegram-bot -- run telegram:bot
 pm2 status
 ```
 
@@ -212,6 +213,7 @@ pm2 save
 
 ```bash
 pm2 logs morning-briefing
+pm2 logs briefing-telegram-bot
 ```
 
 재시작:
@@ -224,7 +226,14 @@ pm2 restart morning-briefing
 
 ```bash
 pm2 stop morning-briefing
+pm2 stop briefing-telegram-bot
 ```
+
+텔레그램 봇 명령은 `.env`의 `TELEGRAM_CHAT_ID`와 일치하는 채팅에서만 처리합니다.
+
+- `/refresh`: 브리핑을 새로 생성하고 캐시를 덮어쓴 뒤 텔레그램으로 전송
+- `/status`: 오늘 캐시 존재 여부와 마지막 생성 시각 확인
+- `/help`: 사용 가능한 명령 표시
 
 ## Nginx 프록시
 

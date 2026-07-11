@@ -91,3 +91,7 @@ export async function sendBriefingToTelegram(text) {
     chunks: chunks.length
   };
 }
+
+export async function sendTelegramText(text) {
+  return sendBriefingToTelegram(text);
+}
