@@ -30,9 +30,13 @@ function buildNewsPrompt(candidates) {
 - 국제 안보/전쟁/공습/제재 기사는 전체에서 최대 1개만 선택한다. 같은 전쟁의 후속 발언, 공습, 유가 반응을 각각 별도 뉴스로 고르지 않는다.
 - 지역 기관 홍보성 뉴스, 교육청/시청/구청/협약/행사 뉴스는 선택하지 않는다.
 - 포토뉴스, 영상뉴스, 단순 발언 기사, 찬반 여론 기사, 일반 스포츠, 연예 뉴스는 선택하지 않는다.
-- 기본 슬롯은 경제/금융/산업 1개, 국제/글로벌 경제 1개, IT/산업 또는 전국적 영향이 큰 사회 이슈 1개다.
-- 선정 결과에는 가능하면 서로 다른 분야가 3개 포함되어야 한다. 최소 2개 이상의 서로 다른 분야를 선택한다.
-- 특정 날에 경제 이슈가 매우 크면 경제 분야를 2개까지 선택해도 되지만, 국제 안보/전쟁 분야는 중요도와 관계없이 1개를 넘기지 않는다.
+- 반드시 다음 세 슬롯에서 각각 1개씩 선택한다.
+  1) 경제: 금융, 금리, 기업, 산업, 증시 정책 등 경제 관련 뉴스 1개
+  2) 국제: 글로벌 경제, 외교, 국제정세, 국제안보 등 국제 뉴스 1개
+  3) 기타: 경제와 국제를 제외한 IT/기술, 과학, 보건, 환경, 재난, 안전, 전국적 사회 이슈 중 가장 중요한 뉴스 1개
+- 같은 뉴스가 두 슬롯을 모두 충족하더라도 한 슬롯에만 사용한다.
+- 기타 슬롯을 경제나 국제 뉴스로 채우지 않는다. 적합한 기타 뉴스가 없으면 억지로 세 번째 뉴스를 만들지 않는다.
+- 국제 안보/전쟁 분야는 중요도와 관계없이 1개를 넘기지 않는다.
 - 사회 뉴스는 전국적 영향이 큰 사건, 제도 변화, 재난, 안전 이슈일 때만 선택한다.
 - 비트코인 현물 ETF, 금리, 달러, 규제, 대형 거래소, 해킹, 기관 매수/매도, 반감기, 스테이블코인 규제처럼 시장 전체에 영향이 큰 가상화폐 이슈는 경제/금융 이슈로 선택할 수 있다.
 - 단순 급등락, 특정 알트코인 홍보성 기사, 밈코인, 거래소 이벤트성 기사는 선택하지 않는다.
@@ -374,6 +378,12 @@ function getNewsDomain(item) {
   if (/국제\/안보|전쟁|공습|미사일|군사|이스라엘|이란|우크라이나|러시아|호르무즈/.test(text)) {
     return 'security';
   }
+  if (/국제\/경제/.test(text)) {
+    return 'global_economy';
+  }
+  if (/경제\/금융|경제\/산업/.test(text)) {
+    return 'economy';
+  }
   if (/IT\/산업|AI|인공지능|빅테크|소프트웨어|반도체/.test(text)) {
     return 'technology';
   }
@@ -382,9 +392,6 @@ function getNewsDomain(item) {
   }
   if (/사회|재난|안전|제도/.test(text)) {
     return 'society';
-  }
-  if (/국제\/경제/.test(text)) {
-    return 'global_economy';
   }
   return 'economy';
 }
@@ -404,44 +411,31 @@ function getNewsEntityKey(item) {
 
 function selectDiverseNews(items, limit = 3) {
   const selected = [];
-  const usedDomains = new Set();
   const usedEntityKeys = new Set();
+  const slots = [
+    (item) => getNewsDomain(item) === 'economy',
+    (item) => ['global_economy', 'security'].includes(getNewsDomain(item)),
+    (item) => ['technology', 'science', 'society'].includes(getNewsDomain(item))
+  ];
 
-  for (const item of items) {
-    const domain = getNewsDomain(item);
-    const entityKey = getNewsEntityKey(item);
-    if (usedDomains.has(domain) || (entityKey && usedEntityKeys.has(entityKey))) {
-      continue;
-    }
-    selected.push(item);
-    usedDomains.add(domain);
-    if (entityKey) {
-      usedEntityKeys.add(entityKey);
-    }
-    if (selected.length === limit) {
-      return selected;
+  for (const matchesSlot of slots) {
+    const item = items.find((candidate) => {
+      const entityKey = getNewsEntityKey(candidate);
+      return !selected.includes(candidate) &&
+        matchesSlot(candidate) &&
+        (!entityKey || !usedEntityKeys.has(entityKey));
+    });
+
+    if (item) {
+      selected.push(item);
+      const entityKey = getNewsEntityKey(item);
+      if (entityKey) {
+        usedEntityKeys.add(entityKey);
+      }
     }
   }
 
-  for (const item of items) {
-    const entityKey = getNewsEntityKey(item);
-    if (
-      selected.includes(item) ||
-      getNewsDomain(item) === 'security' ||
-      (entityKey && usedEntityKeys.has(entityKey))
-    ) {
-      continue;
-    }
-    selected.push(item);
-    if (entityKey) {
-      usedEntityKeys.add(entityKey);
-    }
-    if (selected.length === limit) {
-      break;
-    }
-  }
-
-  return selected;
+  return selected.slice(0, limit);
 }
 
 export async function createWeatherBriefingWithGemini(weather) {
