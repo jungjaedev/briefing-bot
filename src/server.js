@@ -1,10 +1,8 @@
 import 'dotenv/config';
 import crypto from 'node:crypto';
-import dns from 'node:dns';
 import express from 'express';
+import './config/network.js';
 import { getBriefingCacheStatus, getCachedBriefing } from './services/briefingCache.js';
-
-dns.setDefaultResultOrder('ipv4first');
 
 const app = express();
 const port = Number.parseInt(process.env.PORT ?? '3000', 10);

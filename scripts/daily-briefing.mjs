@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import '../src/config/network.js';
 import { refreshBriefingCache } from '../src/services/briefingCache.js';
 import { sendBriefingToTelegram } from '../src/services/telegram.js';
 
