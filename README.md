@@ -95,6 +95,7 @@ TELEGRAM_CHAT_ID=
 - 코인 시세는 Upbit Quotation API를 사용하므로 별도 API 키가 필요 없습니다. 유가, 미국 증시, 국내 증시는 확장 포인트만 남겨두었습니다.
 - `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `GEMINI_API_KEY`가 없거나 API 호출이 실패하면 fallback 브리핑을 반환합니다. GroqCloud 또는 xAI 키는 Gemini 실패 시 보조 LLM으로만 사용됩니다.
 - 텔레그램 자동 발송을 쓰려면 `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`를 넣고 `npm run briefing:daily`를 cron에서 하루 1회 실행하면 됩니다.
+- 모비라이프 거래소 최저가 알림은 `MOBILIFE_MARKET_URL`, `MOBILIFE_API_KEY`, `MOBILIFE_MAX_PRICE`를 넣고 `npm run market:alert`를 cron에서 반복 실행하면 됩니다. 응답 배열 위치나 필드명이 다르면 `MOBILIFE_ITEMS_PATH`, `MOBILIFE_ITEM_NAME_FIELD`, `MOBILIFE_PRICE_FIELD`만 맞추면 됩니다.
 
 ## API
 
@@ -148,6 +149,31 @@ cron 예시:
 1. 브리핑을 새로 생성하고 `data/briefing-cache.json`에 덮어씀
 2. 텔레그램으로 전송
 3. `/briefing`은 그날 캐시를 그대로 읽음
+
+## 거래소 최저가 텔레그램 알림
+
+모비라이프에서 API 키를 발급받은 뒤 `.env`에 넣습니다.
+
+```env
+MOBILIFE_MARKET_URL=https://open.mabimobi.life/v1/market/prices?search=%EC%84%B8%EC%9D%B4%EC%A7%80%20%EB%A1%9C%EB%A0%8C%20%ED%86%A0%ED%83%88%20%ED%8C%A8%ED%82%A4%EC%A7%80&limit=10
+MOBILIFE_API_KEY=...
+MOBILIFE_ITEM_NAME=세이지 로렌 토탈 패키지
+MOBILIFE_MAX_PRICE=4000
+MOBILIFE_ITEMS_PATH=data
+MOBILIFE_PRICE_FIELD=min_price
+```
+
+실행:
+
+```bash
+npm run market:alert
+```
+
+cron 예시:
+
+```cron
+*/2 * * * * cd /home/ubuntu/briefing-bot && /usr/bin/env npm run market:alert >> /home/ubuntu/briefing-bot/logs/market-alert.log 2>&1
+```
 
 ## Oracle Cloud Ubuntu 24.04 배포
 

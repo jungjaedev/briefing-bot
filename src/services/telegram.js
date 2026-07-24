@@ -73,7 +73,7 @@ async function sendTelegramMessage(token, chatId, text) {
   return response.json();
 }
 
-export async function sendBriefingToTelegram(text) {
+export async function sendTelegramText(text) {
   const config = getTelegramConfig();
 
   if (!config) {
@@ -92,6 +92,6 @@ export async function sendBriefingToTelegram(text) {
   };
 }
 
-export async function sendTelegramText(text) {
-  return sendBriefingToTelegram(text);
+export async function sendBriefingToTelegram(text) {
+  return sendTelegramText(text);
 }
